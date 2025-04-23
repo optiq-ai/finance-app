@@ -1,4 +1,3 @@
-# Etap budowy - build
 FROM node:16-alpine as build
 
 # Ustawienie zmiennych środowiskowych
@@ -12,8 +11,8 @@ WORKDIR /app
 # Kopiowanie plików package.json i package-lock.json
 COPY package*.json ./
 
-# Instalacja zależności
-RUN npm ci
+# Instalacja zależności - zmieniono z npm ci na npm install
+RUN npm install
 
 # Kopiowanie reszty plików projektu
 COPY . .
