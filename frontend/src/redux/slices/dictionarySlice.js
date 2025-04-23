@@ -30,6 +30,49 @@ const dictionarySlice = createSlice({
       state.loading = false;
       state.error = action.payload;
     },
+    // Add item actions
+    addItemStart: (state) => {
+      state.loading = true;
+      state.error = null;
+    },
+    addItemSuccess: (state, action) => {
+      const { type, item } = action.payload;
+      state[type] = [...state[type], item];
+      state.loading = false;
+    },
+    addItemFailure: (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+    },
+    // Update item actions
+    updateItemStart: (state) => {
+      state.loading = true;
+      state.error = null;
+    },
+    updateItemSuccess: (state, action) => {
+      const { type, item } = action.payload;
+      state[type] = state[type].map(i => i.id === item.id ? item : i);
+      state.loading = false;
+    },
+    updateItemFailure: (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+    },
+    // Delete item actions
+    deleteItemStart: (state) => {
+      state.loading = true;
+      state.error = null;
+    },
+    deleteItemSuccess: (state, action) => {
+      const { type, id } = action.payload;
+      state[type] = state[type].filter(i => i.id !== id);
+      state.loading = false;
+    },
+    deleteItemFailure: (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+    },
+    // Legacy actions for backward compatibility
     addDictionaryItem: (state, action) => {
       const { type, item } = action.payload;
       state[type] = [...state[type], item];
@@ -49,6 +92,15 @@ export const {
   fetchDictionariesStart,
   fetchDictionariesSuccess,
   fetchDictionariesFailure,
+  addItemStart,
+  addItemSuccess,
+  addItemFailure,
+  updateItemStart,
+  updateItemSuccess,
+  updateItemFailure,
+  deleteItemStart,
+  deleteItemSuccess,
+  deleteItemFailure,
   addDictionaryItem,
   updateDictionaryItem,
   deleteDictionaryItem
