@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: finance-app-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-finance_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - finance-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: finance-app-backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3001}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-finance_db}
+      JWT_SECRET: ${JWT_SECRET:-finance-app-secret-key}
+    ports:
+      - "3001:3001"
+    networks:
+      - finance-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: finance-app-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - finance-network
+
+networks:
+  finance-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
