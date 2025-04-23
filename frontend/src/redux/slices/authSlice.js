@@ -34,10 +34,29 @@ const authSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    updateUserSettings: (state, action) => {
+      if (state.user) {
+        state.user = {
+          ...state.user,
+          ...action.payload,
+          preferences: {
+            ...(state.user.preferences || {}),
+            ...(action.payload.preferences || {})
+          }
+        };
+      }
     }
   }
 });
 
-export const { loginStart, loginSuccess, loginFailure, logout, clearError } = authSlice.actions;
+export const { 
+  loginStart, 
+  loginSuccess, 
+  loginFailure, 
+  logout, 
+  clearError,
+  updateUserSettings 
+} = authSlice.actions;
 
 export default authSlice.reducer;
