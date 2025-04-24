@@ -18,9 +18,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Konfiguracja CORS - zezwalanie na wszystkie źródła
+// Konfiguracja CORS - zezwalanie na określone źródła
 app.use(cors({
-  origin: '*',
+  origin: ['http://localhost:3000', 'http://localhost', 'http://frontend', 'http://localhost:80'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true
@@ -31,7 +31,13 @@ app.use(express.urlencoded({ extended: true }));
 
 // Dodanie nagłówków CORS do każdej odpowiedzi
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = ['http://localhost:3000', 'http://localhost', 'http://frontend', 'http://localhost:80'];
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
