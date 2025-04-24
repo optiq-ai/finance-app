@@ -60,27 +60,79 @@ router.get('/', async (req, res) => {
       return res.status(400).json({ message: 'Nieprawidłowy parametr comparisonPeriod. Dozwolone wartości: month, quarter, year' });
     }
     
-    // Zwracamy przykładowe dane, aby uniknąć problemów z bazą danych
+    // Przygotowanie warunków filtrowania
+    const whereConditions = {};
+    const compareWhereConditions = {};
+    
+    if (departmentId) {
+      whereConditions.departmentId = departmentId;
+      compareWhereConditions.departmentId = departmentId;
+    }
+    
+    // Dodanie warunków dat
+    whereConditions.date = {
+      [Op.between]: [startDate, endDate]
+    };
+    
+    compareWhereConditions.date = {
+      [Op.between]: [compareStartDate, compareEndDate]
+    };
+    
+    // Pobieranie danych z bazy
+    const [currentSales, currentPurchases, currentPayroll] = await Promise.all([
+      Sale.sum('netAmount', { where: whereConditions }),
+      Purchase.sum('grossAmount', { where: whereConditions }),
+      Payroll.sum('grossAmount', { where: whereConditions })
+    ]);
+    
+    const [previousSales, previousPurchases, previousPayroll] = await Promise.all([
+      Sale.sum('netAmount', { where: compareWhereConditions }),
+      Purchase.sum('grossAmount', { where: compareWhereConditions }),
+      Payroll.sum('grossAmount', { where: compareWhereConditions })
+    ]);
+    
+    // Obliczanie wyników
+    const currentSalesValue = currentSales || 0;
+    const currentPurchasesValue = currentPurchases || 0;
+    const currentPayrollValue = currentPayroll || 0;
+    const currentResult = currentSalesValue - currentPurchasesValue - currentPayrollValue;
+    
+    const previousSalesValue = previousSales || 0;
+    const previousPurchasesValue = previousPurchases || 0;
+    const previousPayrollValue = previousPayroll || 0;
+    const previousResult = previousSalesValue - previousPurchasesValue - previousPayrollValue;
+    
+    // Obliczanie zmian procentowych
+    const calculateChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+    
+    const salesChange = calculateChange(currentSalesValue, previousSalesValue);
+    const purchasesChange = calculateChange(currentPurchasesValue, previousPurchasesValue);
+    const payrollChange = calculateChange(currentPayrollValue, previousPayrollValue);
+    const resultChange = calculateChange(currentResult, previousResult);
+    
     res.json({
       currentPeriod: {
         label: periodLabel,
-        sales: 150000,
-        purchases: 80000,
-        payroll: 40000,
-        result: 30000
+        sales: currentSalesValue,
+        purchases: currentPurchasesValue,
+        payroll: currentPayrollValue,
+        result: currentResult
       },
       previousPeriod: {
         label: comparePeriodLabel,
-        sales: 140000,
-        purchases: 75000,
-        payroll: 38000,
-        result: 27000
+        sales: previousSalesValue,
+        purchases: previousPurchasesValue,
+        payroll: previousPayrollValue,
+        result: previousResult
       },
       changes: {
-        sales: 7.14,
-        purchases: 6.67,
-        payroll: 5.26,
-        result: 11.11
+        sales: parseFloat(salesChange.toFixed(2)),
+        purchases: parseFloat(purchasesChange.toFixed(2)),
+        payroll: parseFloat(payrollChange.toFixed(2)),
+        result: parseFloat(resultChange.toFixed(2))
       }
     });
   } catch (err) {
@@ -98,12 +150,41 @@ router.get('/summary', async (req, res) => {
   try {
     const { year, month, departmentId } = req.query;
     
-    // Zwracamy przykładowe dane, aby uniknąć problemów z bazą danych
+    // Przygotowanie warunków filtrowania
+    const whereConditions = {};
+    
+    if (departmentId) {
+      whereConditions.departmentId = departmentId;
+    }
+    
+    // Jeśli podano rok i miesiąc, filtrujemy dane dla tego okresu
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0);
+      
+      whereConditions.date = {
+        [Op.between]: [startDate, endDate]
+      };
+    }
+    
+    // Pobieranie danych z bazy
+    const [totalSales, totalPurchases, totalPayroll] = await Promise.all([
+      Sale.sum('netAmount', { where: whereConditions }),
+      Purchase.sum('grossAmount', { where: whereConditions }),
+      Payroll.sum('grossAmount', { where: whereConditions })
+    ]);
+    
+    // Obliczanie wyniku
+    const salesValue = totalSales || 0;
+    const purchasesValue = totalPurchases || 0;
+    const payrollValue = totalPayroll || 0;
+    const result = salesValue - purchasesValue - payrollValue;
+    
     res.json({
-      totalSales: 1500000,
-      totalPurchases: 800000,
-      totalPayroll: 400000,
-      result: 300000
+      totalSales: salesValue,
+      totalPurchases: purchasesValue,
+      totalPayroll: payrollValue,
+      result: result
     });
   } catch (err) {
     console.error('Dashboard summary error:', err.message);
@@ -121,21 +202,46 @@ router.get('/monthly-data', async (req, res) => {
     const { year, departmentId } = req.query;
     const currentYear = parseInt(year) || new Date().getFullYear();
     
-    // Przygotowanie przykładowych danych dla wszystkich miesięcy
-    const monthlyData = Array.from({ length: 12 }, (_, i) => {
-      const month = i + 1;
-      const sales = 100000 + Math.floor(Math.random() * 50000);
-      const purchases = 50000 + Math.floor(Math.random() * 30000);
-      const payroll = 30000 + Math.floor(Math.random() * 10000);
+    // Przygotowanie warunków filtrowania
+    const baseWhereConditions = {};
+    if (departmentId) {
+      baseWhereConditions.departmentId = departmentId;
+    }
+    
+    // Przygotowanie danych dla wszystkich miesięcy
+    const monthlyData = [];
+    
+    for (let month = 0; month < 12; month++) {
+      const startDate = new Date(currentYear, month, 1);
+      const endDate = new Date(currentYear, month + 1, 0);
       
-      return {
-        month,
-        sales,
-        purchases,
-        payroll,
-        result: sales - purchases - payroll
+      const whereConditions = {
+        ...baseWhereConditions,
+        date: {
+          [Op.between]: [startDate, endDate]
+        }
       };
-    });
+      
+      // Pobieranie danych z bazy dla danego miesiąca
+      const [sales, purchases, payroll] = await Promise.all([
+        Sale.sum('netAmount', { where: whereConditions }) || 0,
+        Purchase.sum('grossAmount', { where: whereConditions }) || 0,
+        Payroll.sum('grossAmount', { where: whereConditions }) || 0
+      ]);
+      
+      const salesValue = sales || 0;
+      const purchasesValue = purchases || 0;
+      const payrollValue = payroll || 0;
+      const result = salesValue - purchasesValue - payrollValue;
+      
+      monthlyData.push({
+        month: month + 1,
+        sales: salesValue,
+        purchases: purchasesValue,
+        payroll: payrollValue,
+        result: result
+      });
+    }
     
     res.json(monthlyData);
   } catch (err) {
