@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button, Grid, Paper, Divider } from '@mui/material';
+import { Box, Typography, Button, Alert, CircularProgress, Paper, Grid, Divider } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import dataLogger from '../utils/DataLogger';
 import purchasesService from '../services/purchasesService';
@@ -299,7 +299,7 @@ const DataFlowTester = () => {
   
   // Funkcja do pobierania logów
   const fetchLogs = () => {
-    const allLogs = dataLogger.getLogs();
+    const allLogs = dataLogger.getLogs ? dataLogger.getLogs() : [];
     setLogs(allLogs);
   };
   

@@ -1,116 +1,252 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { Box, Typography, CircularProgress, Alert, Paper, Grid } from '@mui/material';
+import { Box, Typography, Button, Alert, CircularProgress, Paper, Grid, Divider } from '@mui/material';
+import { useDispatch, useSelector } from 'react-redux';
+import api from '../api';
 
-// Komponent diagnostyczny do bezpośredniego testowania połączenia z API
 const ApiDiagnosticTool = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [results, setResults] = useState({});
   const [error, setError] = useState(null);
-
-  // Lista endpointów do przetestowania
-  const endpoints = [
-    { name: 'Health Check', url: '/api/health' },
-    { name: 'Dashboard', url: '/api/dashboard' },
-    { name: 'Purchases', url: '/api/purchases' },
-    { name: 'Payroll', url: '/api/payroll' },
-    { name: 'Sales', url: '/api/sales' },
-    { name: 'Dictionary', url: '/api/dictionary' }
-  ];
-
-  // Funkcja do bezpośredniego testowania endpointów API
-  const testApiEndpoints = async () => {
+  const [logs, setLogs] = useState([]);
+  
+  const addLog = (message, data = null, isError = false) => {
+    const timestamp = new Date().toISOString();
+    setLogs(prevLogs => [
+      { timestamp, message, data, isError },
+      ...prevLogs.slice(0, 49) // Keep only the last 50 logs
+    ]);
+  };
+  
+  const testDictionaryEndpoint = async () => {
     setLoading(true);
     setError(null);
     
-    const testResults = {};
-    let hasError = false;
-    
-    // Testowanie bezpośredniego połączenia z backendem
     try {
-      const directResponse = await fetch('http://localhost:3001/api/health');
-      const directData = await directResponse.json();
-      testResults.directConnection = {
-        status: 'success',
-        data: directData
+      addLog('Testowanie endpointu /api/dictionary...');
+      
+      const response = await api.get('/dictionary');
+      
+      const data = response.data || {};
+      const departments = Array.isArray(data.departments) ? data.departments : [];
+      const groups = Array.isArray(data.groups) ? data.groups : [];
+      const serviceTypes = Array.isArray(data.serviceTypes) ? data.serviceTypes : [];
+      const contractors = Array.isArray(data.contractors) ? data.contractors : [];
+      const costCategories = Array.isArray(data.costCategories) ? data.costCategories : [];
+      
+      const result = {
+        status: response.status,
+        departments: departments.length,
+        groups: groups.length,
+        serviceTypes: serviceTypes.length,
+        contractors: contractors.length,
+        costCategories: costCategories.length,
+        success: departments.length > 0 || groups.length > 0 || serviceTypes.length > 0 || 
+                contractors.length > 0 || costCategories.length > 0
       };
+      
+      setResults(prev => ({ ...prev, dictionary: result }));
+      
+      addLog(`Test endpointu /api/dictionary zakończony: status ${response.status}`, {
+        departments: departments.length,
+        groups: groups.length,
+        serviceTypes: serviceTypes.length,
+        contractors: contractors.length,
+        costCategories: costCategories.length
+      });
+      
+      return result;
     } catch (err) {
-      testResults.directConnection = {
-        status: 'error',
-        error: err.message
+      const errorMessage = err.response?.data?.message || err.message || 'Nieznany błąd';
+      setError(`Błąd podczas testowania endpointu /api/dictionary: ${errorMessage}`);
+      
+      const result = {
+        status: err.response?.status || 500,
+        error: errorMessage,
+        success: false
       };
-      hasError = true;
+      
+      setResults(prev => ({ ...prev, dictionary: result }));
+      
+      addLog(`Błąd podczas testowania endpointu /api/dictionary: ${errorMessage}`, 
+        err.response?.data || err, true);
+      
+      return result;
+    } finally {
+      setLoading(false);
     }
+  };
+  
+  const testPurchasesEndpoint = async () => {
+    setLoading(true);
+    setError(null);
     
-    // Testowanie połączenia przez proxy NGINX
     try {
-      const proxyResponse = await fetch('/api/health');
-      const proxyData = await proxyResponse.json();
-      testResults.proxyConnection = {
-        status: 'success',
-        data: proxyData
+      addLog('Testowanie endpointu /api/purchases...');
+      
+      const response = await api.get('/purchases');
+      
+      const data = response.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      
+      const result = {
+        status: response.status,
+        totalItems: data.totalItems || 0,
+        items: items.length,
+        success: items.length > 0
       };
+      
+      setResults(prev => ({ ...prev, purchases: result }));
+      
+      addLog(`Test endpointu /api/purchases zakończony: status ${response.status}`, {
+        totalItems: data.totalItems,
+        items: items.length
+      });
+      
+      return result;
     } catch (err) {
-      testResults.proxyConnection = {
-        status: 'error',
-        error: err.message
+      const errorMessage = err.response?.data?.message || err.message || 'Nieznany błąd';
+      setError(`Błąd podczas testowania endpointu /api/purchases: ${errorMessage}`);
+      
+      const result = {
+        status: err.response?.status || 500,
+        error: errorMessage,
+        success: false
       };
-      hasError = true;
+      
+      setResults(prev => ({ ...prev, purchases: result }));
+      
+      addLog(`Błąd podczas testowania endpointu /api/purchases: ${errorMessage}`, 
+        err.response?.data || err, true);
+      
+      return result;
+    } finally {
+      setLoading(false);
     }
-    
-    // Testowanie wszystkich endpointów API
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Testowanie endpointu: ${endpoint.url}`);
-        const response = await axios.get(endpoint.url);
-        testResults[endpoint.name] = {
-          status: 'success',
-          statusCode: response.status,
-          data: response.data
-        };
-        console.log(`Odpowiedź z ${endpoint.url}:`, response.data);
-      } catch (err) {
-        console.error(`Błąd podczas testowania ${endpoint.url}:`, err);
-        testResults[endpoint.name] = {
-          status: 'error',
-          statusCode: err.response?.status,
-          error: err.message,
-          details: err.response?.data
-        };
-        hasError = true;
-      }
-    }
-    
-    setResults(testResults);
-    if (hasError) {
-      setError('Niektóre testy zakończyły się niepowodzeniem. Sprawdź szczegóły poniżej.');
-    }
-    setLoading(false);
   };
-
-  useEffect(() => {
-    testApiEndpoints();
-  }, []);
-
-  const handleRetry = () => {
-    testApiEndpoints();
+  
+  const testPayrollEndpoint = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      addLog('Testowanie endpointu /api/payroll...');
+      
+      const response = await api.get('/payroll');
+      
+      const data = response.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      
+      const result = {
+        status: response.status,
+        totalItems: data.totalItems || 0,
+        items: items.length,
+        success: items.length > 0
+      };
+      
+      setResults(prev => ({ ...prev, payroll: result }));
+      
+      addLog(`Test endpointu /api/payroll zakończony: status ${response.status}`, {
+        totalItems: data.totalItems,
+        items: items.length
+      });
+      
+      return result;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Nieznany błąd';
+      setError(`Błąd podczas testowania endpointu /api/payroll: ${errorMessage}`);
+      
+      const result = {
+        status: err.response?.status || 500,
+        error: errorMessage,
+        success: false
+      };
+      
+      setResults(prev => ({ ...prev, payroll: result }));
+      
+      addLog(`Błąd podczas testowania endpointu /api/payroll: ${errorMessage}`, 
+        err.response?.data || err, true);
+      
+      return result;
+    } finally {
+      setLoading(false);
+    }
   };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Testowanie połączenia z API...
-        </Typography>
-      </Box>
-    );
-  }
-
+  
+  const testSalesEndpoint = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      addLog('Testowanie endpointu /api/sales...');
+      
+      const response = await api.get('/sales');
+      
+      const data = response.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      
+      const result = {
+        status: response.status,
+        totalItems: data.totalItems || 0,
+        items: items.length,
+        success: items.length > 0
+      };
+      
+      setResults(prev => ({ ...prev, sales: result }));
+      
+      addLog(`Test endpointu /api/sales zakończony: status ${response.status}`, {
+        totalItems: data.totalItems,
+        items: items.length
+      });
+      
+      return result;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Nieznany błąd';
+      setError(`Błąd podczas testowania endpointu /api/sales: ${errorMessage}`);
+      
+      const result = {
+        status: err.response?.status || 500,
+        error: errorMessage,
+        success: false
+      };
+      
+      setResults(prev => ({ ...prev, sales: result }));
+      
+      addLog(`Błąd podczas testowania endpointu /api/sales: ${errorMessage}`, 
+        err.response?.data || err, true);
+      
+      return result;
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const testAllEndpoints = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      addLog('Testowanie wszystkich endpointów API...');
+      
+      await testDictionaryEndpoint();
+      await testPurchasesEndpoint();
+      await testPayrollEndpoint();
+      await testSalesEndpoint();
+      
+      addLog('Testy wszystkich endpointów zakończone');
+    } catch (err) {
+      const errorMessage = err.message || 'Nieznany błąd';
+      setError(`Błąd podczas testowania endpointów: ${errorMessage}`);
+      
+      addLog(`Błąd podczas testowania endpointów: ${errorMessage}`, err, true);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Narzędzie diagnostyczne API
+        Diagnostyka API
       </Typography>
       
       {error && (
@@ -120,48 +256,210 @@ const ApiDiagnosticTool = () => {
       )}
       
       <Box sx={{ mb: 3 }}>
-        <button onClick={handleRetry}>Uruchom testy ponownie</button>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={testAllEndpoints} 
+          disabled={loading}
+          sx={{ mr: 2 }}
+        >
+          {loading ? 'Testowanie...' : 'Testuj wszystkie endpointy'}
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          onClick={testDictionaryEndpoint}
+          disabled={loading}
+          sx={{ mr: 2 }}
+        >
+          Testuj słowniki
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          onClick={testPurchasesEndpoint}
+          disabled={loading}
+          sx={{ mr: 2 }}
+        >
+          Testuj zakupy
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          onClick={testPayrollEndpoint}
+          disabled={loading}
+          sx={{ mr: 2 }}
+        >
+          Testuj wypłaty
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          onClick={testSalesEndpoint}
+          disabled={loading}
+        >
+          Testuj sprzedaż
+        </Button>
       </Box>
       
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, mb: 3 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Bezpośrednie połączenie z backendem
+              Słowniki
             </Typography>
-            <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '200px' }}>
-              {JSON.stringify(results.directConnection, null, 2)}
-            </pre>
+            {results.dictionary ? (
+              <Box>
+                <Typography variant="body2" color={results.dictionary.success ? 'success.main' : 'error.main'}>
+                  Status: {results.dictionary.status} ({results.dictionary.success ? 'Sukces' : 'Błąd'})
+                </Typography>
+                {results.dictionary.success ? (
+                  <Box>
+                    <Typography variant="body2">
+                      Oddziały: {results.dictionary.departments}
+                    </Typography>
+                    <Typography variant="body2">
+                      Grupy: {results.dictionary.groups}
+                    </Typography>
+                    <Typography variant="body2">
+                      Rodzaje usług: {results.dictionary.serviceTypes}
+                    </Typography>
+                    <Typography variant="body2">
+                      Kontrahenci: {results.dictionary.contractors}
+                    </Typography>
+                    <Typography variant="body2">
+                      Kategorie kosztów: {results.dictionary.costCategories}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="error">
+                    {results.dictionary.error}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Brak wyników
+              </Typography>
+            )}
           </Paper>
         </Grid>
         
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, mb: 3 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Połączenie przez proxy NGINX
+              Zakupy
             </Typography>
-            <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '200px' }}>
-              {JSON.stringify(results.proxyConnection, null, 2)}
-            </pre>
+            {results.purchases ? (
+              <Box>
+                <Typography variant="body2" color={results.purchases.success ? 'success.main' : 'error.main'}>
+                  Status: {results.purchases.status} ({results.purchases.success ? 'Sukces' : 'Błąd'})
+                </Typography>
+                {results.purchases.success ? (
+                  <Box>
+                    <Typography variant="body2">
+                      Liczba rekordów: {results.purchases.items} / {results.purchases.totalItems}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="error">
+                    {results.purchases.error}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Brak wyników
+              </Typography>
+            )}
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Wypłaty
+            </Typography>
+            {results.payroll ? (
+              <Box>
+                <Typography variant="body2" color={results.payroll.success ? 'success.main' : 'error.main'}>
+                  Status: {results.payroll.status} ({results.payroll.success ? 'Sukces' : 'Błąd'})
+                </Typography>
+                {results.payroll.success ? (
+                  <Box>
+                    <Typography variant="body2">
+                      Liczba rekordów: {results.payroll.items} / {results.payroll.totalItems}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="error">
+                    {results.payroll.error}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Brak wyników
+              </Typography>
+            )}
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Sprzedaż
+            </Typography>
+            {results.sales ? (
+              <Box>
+                <Typography variant="body2" color={results.sales.success ? 'success.main' : 'error.main'}>
+                  Status: {results.sales.status} ({results.sales.success ? 'Sukces' : 'Błąd'})
+                </Typography>
+                {results.sales.success ? (
+                  <Box>
+                    <Typography variant="body2">
+                      Liczba rekordów: {results.sales.items} / {results.sales.totalItems}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="error">
+                    {results.sales.error}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Brak wyników
+              </Typography>
+            )}
           </Paper>
         </Grid>
       </Grid>
       
-      {endpoints.map((endpoint) => (
-        <Paper key={endpoint.name} sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            {endpoint.name} ({endpoint.url})
-          </Typography>
-          <Typography variant="body2" color={results[endpoint.name]?.status === 'success' ? 'success.main' : 'error.main'}>
-            Status: {results[endpoint.name]?.status} {results[endpoint.name]?.statusCode && `(${results[endpoint.name]?.statusCode})`}
-          </Typography>
-          <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '300px' }}>
-            {results[endpoint.name]?.status === 'success'
-              ? JSON.stringify(results[endpoint.name]?.data, null, 2)
-              : JSON.stringify(results[endpoint.name], null, 2)}
-          </pre>
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          Logi ({logs.length})
+        </Typography>
+        <Paper sx={{ p: 2, maxHeight: '400px', overflow: 'auto' }}>
+          {logs.map((log, index) => (
+            <Box key={index} sx={{ mb: 1 }}>
+              <Typography variant="caption" color={log.isError ? 'error.main' : 'text.secondary'}>
+                {new Date(log.timestamp).toLocaleTimeString()} - {log.message}
+              </Typography>
+              {log.data && (
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {JSON.stringify(log.data, null, 2)}
+                </pre>
+              )}
+              <Divider sx={{ my: 1 }} />
+            </Box>
+          ))}
         </Paper>
-      ))}
+      </Box>
     </Box>
   );
 };

@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Box, Typography, Tabs, Tab, Container } from '@mui/material';
-import { useDispatch } from 'react-redux';
-import ApiDiagnosticTool from '../components/ApiDiagnosticTool';
-import DirectDataLoader from '../components/DirectDataLoader';
-import DataFlowTester from '../components/DataFlowTester';
+import ApiDiagnosticTool from '../../components/ApiDiagnosticTool';
+import DirectDataLoader from '../../components/DirectDataLoader';
+import DataFlowTester from '../../components/DataFlowTester';
 
 // Komponent strony diagnostycznej
 const DiagnosticPage = () => {
