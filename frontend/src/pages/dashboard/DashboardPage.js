@@ -20,7 +20,7 @@ import dashboardService from '../../services/dashboardService';
 
 const DashboardPage = () => {
   const dispatch = useDispatch();
-  const { kpis, charts, loading, error, filters } = useSelector((state) => state.dashboard);
+  const { kpis = {}, charts = [], loading, error, filters } = useSelector((state) => state.dashboard || {});
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -29,7 +29,7 @@ const DashboardPage = () => {
         const data = await dashboardService.getDashboardData(filters);
         dispatch(fetchDashboardDataSuccess(data));
       } catch (err) {
-        dispatch(fetchDashboardDataFailure(err.message));
+        dispatch(fetchDashboardDataFailure(err?.message || 'Wystąpił błąd podczas pobierania danych'));
       }
     };
 
@@ -54,6 +54,14 @@ const DashboardPage = () => {
     );
   }
 
+  // Bezpieczne wartości domyślne dla KPI
+  const totalRevenue = kpis?.totalRevenue || 0;
+  const averageRevenue = kpis?.averageRevenue || 0;
+  const totalCosts = kpis?.totalCosts || 0;
+  const averageCost = kpis?.averageCost || 0;
+  const totalProfit = kpis?.totalProfit || 0;
+  const profitMargin = kpis?.profitMargin || 0;
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
@@ -66,9 +74,9 @@ const DashboardPage = () => {
           <Card>
             <CardHeader title="Przychody" />
             <CardContent>
-              <Typography variant="h4">{kpis.totalRevenue.toLocaleString()} zł</Typography>
+              <Typography variant="h4">{totalRevenue.toLocaleString()} zł</Typography>
               <Typography variant="body2" color="text.secondary">
-                Średnio: {kpis.averageRevenue.toLocaleString()} zł
+                Średnio: {averageRevenue.toLocaleString()} zł
               </Typography>
             </CardContent>
           </Card>
@@ -77,9 +85,9 @@ const DashboardPage = () => {
           <Card>
             <CardHeader title="Koszty" />
             <CardContent>
-              <Typography variant="h4">{kpis.totalCosts.toLocaleString()} zł</Typography>
+              <Typography variant="h4">{totalCosts.toLocaleString()} zł</Typography>
               <Typography variant="body2" color="text.secondary">
-                Średnio: {kpis.averageCost.toLocaleString()} zł
+                Średnio: {averageCost.toLocaleString()} zł
               </Typography>
             </CardContent>
           </Card>
@@ -88,9 +96,9 @@ const DashboardPage = () => {
           <Card>
             <CardHeader title="Zysk" />
             <CardContent>
-              <Typography variant="h4">{kpis.totalProfit.toLocaleString()} zł</Typography>
+              <Typography variant="h4">{totalProfit.toLocaleString()} zł</Typography>
               <Typography variant="body2" color="text.secondary">
-                Marża: {kpis.profitMargin.toFixed(2)}%
+                Marża: {profitMargin.toFixed(2)}%
               </Typography>
             </CardContent>
           </Card>
