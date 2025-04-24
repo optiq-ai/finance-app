@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button, Alert, CircularProgress, Paper, Grid, Divider } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import dataLogger from '../../utils/DataLogger';
-import purchasesService from '../../services/purchasesService';
-import payrollService from '../../services/payrollService';
-import salesService from '../../services/salesService';
-import dictionaryService from '../../services/dictionaryService';
-import { fetchDictionariesSuccess } from '../../redux/slices/dictionarySlice';
-import { fetchPurchasesSuccess } from '../../redux/slices/purchasesSlice';
-import { fetchPayrollSuccess } from '../../redux/slices/payrollSlice';
-import { fetchSalesSuccess } from '../../redux/slices/salesSlice';
+import dataLogger from '../utils/DataLogger';
+import purchasesService from '../services/purchasesService';
+import payrollService from '../services/payrollService';
+import salesService from '../services/salesService';
+import dictionaryService from '../services/dictionaryService';
+import { fetchDictionariesSuccess } from '../redux/slices/dictionarySlice';
+import { fetchPurchasesSuccess } from '../redux/slices/purchasesSlice';
+import { fetchPayrollSuccess } from '../redux/slices/payrollSlice';
+import { fetchSalesSuccess } from '../redux/slices/salesSlice';
 
 // Komponent do testowania przepływu danych w aplikacji
 const DataFlowTester = () => {
