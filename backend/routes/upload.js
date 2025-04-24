@@ -209,11 +209,10 @@ const MOCK_MODE = false; // Ustaw na true, aby włączyć tryb testowy
  * @access  Private
  */
 router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => {
-  // Rozpoczęcie transakcji
-  let transaction;
+  let transaction = null;
+  let importedFile = null;
   
   try {
-    transaction = await sequelize.transaction();
     console.log('Rozpoczęcie przetwarzania pliku...');
     
     // Tryb testowy z danymi mock
@@ -230,7 +229,6 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         processedRows: 10
       };
       
-      await transaction.commit();
       return res.status(201).json({
         message: 'Plik został pomyślnie przesłany i przetworzony (tryb testowy)',
         importedFile: mockFile,
@@ -240,7 +238,6 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
     
     if (!req.file) {
       console.log('Błąd: Nie przesłano pliku');
-      await transaction.rollback();
       return res.status(400).json({ message: 'Nie przesłano pliku' });
     }
 
@@ -250,21 +247,8 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
     
     if (!type || !['purchases', 'payroll', 'sales'].includes(type)) {
       console.log('Błąd: Nieprawidłowy typ danych:', type);
-      await transaction.rollback();
       return res.status(400).json({ message: 'Nieprawidłowy typ danych' });
     }
-
-    // Zapisanie informacji o pliku w bazie danych
-    console.log('Tworzenie rekordu ImportedFile...');
-    const importedFile = await ImportedFile.create({
-      filename: req.file.filename,
-      originalFilename: req.file.originalname,
-      fileType: type === 'purchases' ? 'purchase' : type === 'payroll' ? 'payroll' : 'sale',
-      status: 'processing',
-      importDate: new Date(),
-      importedBy: req.user ? req.user.id : null
-    }, { transaction });
-    console.log('Utworzono rekord ImportedFile:', importedFile.id);
 
     // Odczytanie pliku Excel/CSV
     console.log('Odczytywanie pliku:', req.file.path);
@@ -273,13 +257,23 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       data = parseFile(req.file.path);
     } catch (err) {
       console.error('Błąd podczas odczytu pliku:', err);
-      await importedFile.update({
-        status: 'error',
-        errorMessage: err.message
-      }, { transaction });
-      await transaction.commit(); // Zapisujemy informację o błędzie
       return res.status(400).json({ message: `Błąd podczas odczytu pliku: ${err.message}` });
     }
+
+    // Rozpoczęcie transakcji
+    transaction = await sequelize.transaction();
+    
+    // Zapisanie informacji o pliku w bazie danych
+    console.log('Tworzenie rekordu ImportedFile...');
+    importedFile = await ImportedFile.create({
+      filename: req.file.filename,
+      originalFilename: req.file.originalname,
+      fileType: type === 'purchases' ? 'purchase' : type === 'payroll' ? 'payroll' : 'sale',
+      status: 'processing',
+      importDate: new Date(),
+      importedBy: req.user ? req.user.id : null
+    }, { transaction });
+    console.log('Utworzono rekord ImportedFile:', importedFile.id);
 
     let processedRows = 0;
 
@@ -300,7 +294,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
           processedRows++;
         } catch (err) {
           console.error('Błąd podczas przetwarzania wiersza zakupu:', err);
-          // Kontynuujemy przetwarzanie pozostałych wierszy
+          // Kontynuujemy przetwarzanie pozostałych wierszy, ale nie przerywamy całej transakcji
         }
       }
     } else if (type === 'payroll') {
@@ -319,7 +313,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
           processedRows++;
         } catch (err) {
           console.error('Błąd podczas przetwarzania wiersza wypłaty:', err);
-          // Kontynuujemy przetwarzanie pozostałych wierszy
+          // Kontynuujemy przetwarzanie pozostałych wierszy, ale nie przerywamy całej transakcji
         }
       }
     } else if (type === 'sales') {
@@ -338,7 +332,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
           processedRows++;
         } catch (err) {
           console.error('Błąd podczas przetwarzania wiersza sprzedaży:', err);
-          // Kontynuujemy przetwarzanie pozostałych wierszy
+          // Kontynuujemy przetwarzanie pozostałych wierszy, ale nie przerywamy całej transakcji
         }
       }
     }
@@ -359,6 +353,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
 
       // Zatwierdzenie transakcji
       await transaction.commit();
+      transaction = null;
 
       console.log('Przetwarzanie pliku zakończone pomyślnie');
       res.status(201).json({
@@ -376,13 +371,37 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       });
     } catch (updateErr) {
       console.error('Błąd podczas aktualizacji statusu pliku:', updateErr);
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
+      transaction = null;
       res.status(500).json({ message: 'Błąd podczas aktualizacji statusu pliku', error: updateErr.message });
     }
   } catch (err) {
     // Wycofanie transakcji w przypadku błędu
-    if (transaction) await transaction.rollback();
     console.error('Upload error:', err);
+    if (transaction) await transaction.rollback();
+    
+    // Jeśli plik został już utworzony w bazie, ale wystąpił błąd podczas przetwarzania,
+    // aktualizujemy jego status na 'error' w nowej transakcji
+    if (importedFile) {
+      try {
+        const errorTransaction = await sequelize.transaction();
+        await ImportedFile.update(
+          {
+            status: 'error',
+            errorMessage: err.message
+          },
+          {
+            where: { id: importedFile.id },
+            transaction: errorTransaction
+          }
+        );
+        await errorTransaction.commit();
+      } catch (updateErr) {
+        console.error('Błąd podczas aktualizacji statusu pliku na error:', updateErr);
+        // Ignorujemy błąd aktualizacji statusu, aby zwrócić oryginalny błąd
+      }
+    }
+    
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
@@ -547,8 +566,7 @@ router.get('/:id', async (req, res) => {
  * @access  Private
  */
 router.delete('/:id', async (req, res) => {
-  // Rozpoczęcie transakcji
-  const transaction = await sequelize.transaction();
+  let transaction = null;
   
   try {
     const fileId = req.params.id;
@@ -565,11 +583,13 @@ router.delete('/:id', async (req, res) => {
     
     if (!importedFile) {
       console.log(`Nie znaleziono pliku o ID: ${fileId}`);
-      await transaction.rollback();
       return res.status(404).json({ message: 'Nie znaleziono pliku o podanym ID' });
     }
     
     console.log(`Znaleziono plik: ${importedFile.originalFilename}, typ: ${importedFile.fileType}`);
+    
+    // Rozpoczęcie transakcji
+    transaction = await sequelize.transaction();
     
     // Usuwanie powiązanych danych w zależności od typu pliku
     try {
@@ -594,7 +614,8 @@ router.delete('/:id', async (req, res) => {
       }
     } catch (err) {
       console.error('Błąd podczas usuwania powiązanych danych:', err);
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
+      transaction = null;
       return res.status(500).json({ message: `Błąd podczas usuwania powiązanych danych: ${err.message}` });
     }
     
@@ -618,11 +639,12 @@ router.delete('/:id', async (req, res) => {
     
     // Zatwierdzenie transakcji
     await transaction.commit();
+    transaction = null;
     
     res.json({ message: 'Plik i powiązane dane zostały usunięte' });
   } catch (err) {
     // Wycofanie transakcji w przypadku błędu
-    await transaction.rollback();
+    if (transaction) await transaction.rollback();
     console.error('Upload delete error:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
