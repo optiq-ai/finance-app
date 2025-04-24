@@ -149,58 +149,159 @@ const parseFile = (filePath) => {
   }
 };
 
+// Funkcja pomocnicza do konwersji wartości na liczbę całkowitą lub null
+const safeToInteger = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  
+  // Próba konwersji na liczbę całkowitą
+  const parsed = parseInt(value, 10);
+  
+  // Jeśli konwersja się nie powiedzie, zwróć null
+  if (isNaN(parsed)) {
+    console.log(`Wartość "${value}" nie może być przekonwertowana na liczbę całkowitą, zwracam null`);
+    return null;
+  }
+  
+  return parsed;
+};
+
+// Funkcja pomocnicza do konwersji wartości na liczbę zmiennoprzecinkową lub 0
+const safeToFloat = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+  
+  // Jeśli wartość jest stringiem, usuń spacje, zamień przecinki na kropki i usuń symbole waluty
+  if (typeof value === 'string') {
+    value = value.trim()
+      .replace(/\s+/g, '')  // Usuń wszystkie spacje
+      .replace(/,/g, '.')   // Zamień przecinki na kropki
+      .replace(/[^\d.-]/g, ''); // Usuń wszystkie znaki oprócz cyfr, kropek i minusów
+  }
+  
+  // Próba konwersji na liczbę zmiennoprzecinkową
+  const parsed = parseFloat(value);
+  
+  // Jeśli konwersja się nie powiedzie, zwróć 0
+  if (isNaN(parsed)) {
+    console.log(`Wartość "${value}" nie może być przekonwertowana na liczbę zmiennoprzecinkową, zwracam 0`);
+    return 0;
+  }
+  
+  return parsed;
+};
+
 // Funkcje mapujące nazwy kolumn z plików Excel na pola w bazie danych
-// Zaktualizowane na podstawie analizy rzeczywistych plików
+// Zaktualizowane na podstawie analizy rzeczywistych plików i z konwersją typów
 const mapPurchaseFields = (row) => {
   console.log('Mapowanie pól zakupu:', JSON.stringify(row));
-  return {
-    date: row['Data zakupu'] || row['Data wpływu'] || new Date(),
-    documentNumber: row['Numer dokumentu'] || `DOC-${Date.now()}`,
-    description: row['Opis'] || row['Kategoria'] || '',
-    netAmount: parseFloat(row['Netto'] || 0),
-    vatAmount: parseFloat(row['VAT'] || 0),
-    grossAmount: parseFloat(row['Brutto'] || 0),
-    departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
-    groupId: row['Kolumna2'] ? String(row['Kolumna2']).trim() : null, // Kolumna2 zawiera grupę w pliku Zakup.xlsx
-    serviceTypeId: row['Kolumna3'] ? String(row['Kolumna3']).trim() : null, // Kolumna3 może zawierać rodzaj usługi
-    contractorId: row['Kontrahent'] ? String(row['Kontrahent']).trim() : 
-                 row['Płatnik'] ? String(row['Płatnik']).trim() : null,
-    costCategoryId: row['Kategoria'] ? String(row['Kategoria']).trim() : null
+  
+  // Pobierz wartości z pliku Excel
+  const date = row['Data zakupu'] || row['Data wpływu'] || new Date();
+  const documentNumber = row['Numer dokumentu'] || `DOC-${Date.now()}`;
+  const description = row['Opis'] || row['Kategoria'] || '';
+  const netAmount = safeToFloat(row['Netto']);
+  const vatAmount = safeToFloat(row['VAT']);
+  const grossAmount = safeToFloat(row['Brutto']);
+  
+  // Konwersja identyfikatorów na liczby całkowite (lub null jeśli konwersja się nie powiedzie)
+  // W bazie danych te pola są typu INTEGER
+  const departmentId = safeToInteger(row['Oddział'] ? String(row['Oddział']).trim() : null);
+  const groupId = safeToInteger(row['Kolumna2'] ? String(row['Kolumna2']).trim() : null);
+  const serviceTypeId = safeToInteger(row['Kolumna3'] ? String(row['Kolumna3']).trim() : null);
+  const contractorId = safeToInteger(row['Kontrahent'] ? String(row['Kontrahent']).trim() : 
+                      row['Płatnik'] ? String(row['Płatnik']).trim() : null);
+  const costCategoryId = safeToInteger(row['Kategoria'] ? String(row['Kategoria']).trim() : null);
+  
+  const result = {
+    date,
+    documentNumber,
+    description,
+    netAmount,
+    vatAmount,
+    grossAmount,
+    departmentId,
+    groupId,
+    serviceTypeId,
+    contractorId,
+    costCategoryId
   };
+  
+  console.log('Zmapowane dane zakupu po konwersji typów:', JSON.stringify(result));
+  return result;
 };
 
 const mapPayrollFields = (row) => {
   console.log('Mapowanie pól wypłaty:', JSON.stringify(row));
-  // Zaktualizowane na podstawie analizy rzeczywistego pliku wyplaty.xlsx
-  return {
-    date: row['Data'] || new Date(),
-    employeeName: `${row['Nazwisko'] || ''} ${row['Imie'] || ''}`.trim() || 'Nieznany',
-    position: row['Tytul_ubezpieczenia'] ? String(row['Tytul_ubezpieczenia']) : '',
-    grossAmount: parseFloat(row['Brutto'] || 0),
-    taxAmount: parseFloat(row['Zaliczka_podatku'] || 0),
-    netAmount: parseFloat(row['Netto'] || 0),
-    departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
-    groupId: row['Grupa'] ? String(row['Grupa']).trim() : null
+  
+  // Pobierz wartości z pliku Excel
+  const date = row['Data'] || new Date();
+  const employeeName = `${row['Nazwisko'] || ''} ${row['Imie'] || ''}`.trim() || 'Nieznany';
+  const position = row['Tytul_ubezpieczenia'] ? String(row['Tytul_ubezpieczenia']) : '';
+  const grossAmount = safeToFloat(row['Brutto']);
+  const taxAmount = safeToFloat(row['Zaliczka_podatku']);
+  const netAmount = safeToFloat(row['Netto']);
+  
+  // Konwersja identyfikatorów na liczby całkowite (lub null jeśli konwersja się nie powiedzie)
+  const departmentId = safeToInteger(row['Oddział'] ? String(row['Oddział']).trim() : null);
+  const groupId = safeToInteger(row['Grupa'] ? String(row['Grupa']).trim() : null);
+  
+  const result = {
+    date,
+    employeeName,
+    position,
+    grossAmount,
+    taxAmount,
+    netAmount,
+    departmentId,
+    groupId
   };
+  
+  console.log('Zmapowane dane wypłaty po konwersji typów:', JSON.stringify(result));
+  return result;
 };
 
 const mapSaleFields = (row) => {
   console.log('Mapowanie pól sprzedaży:', JSON.stringify(row));
-  // Zaktualizowane na podstawie analizy rzeczywistego pliku Sprzedaz.xlsx
-  return {
-    date: row['Data usługi'] || row['Data wyst.'] || new Date(),
-    documentNumber: row['Numer dokumentu'] || `SALE-${Date.now()}`,
-    description: row['Rodzaj usługi'] || '',
-    netAmount: parseFloat(row['Netto'] || 0),
-    vatAmount: 0, // Brak kolumny VAT w pliku Sprzedaz.xlsx, ustawiamy na 0
-    grossAmount: parseFloat(row['Netto'] || 0), // Brak kolumny Brutto, używamy Netto
-    departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
-    groupId: row['Grupa'] ? String(row['Grupa']).trim() : null,
-    serviceTypeId: row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null,
-    customer: row['Kontrahent'] ? String(row['Kontrahent']).trim() : '',
-    quantity: parseInt(row['Ilość'] || 1),
-    averageValue: parseFloat(row['ŚREDNIA'] || 0)
+  
+  // Pobierz wartości z pliku Excel
+  const date = row['Data usługi'] || row['Data wyst.'] || new Date();
+  const documentNumber = row['Numer dokumentu'] || `SALE-${Date.now()}`;
+  const description = row['Rodzaj usługi'] || '';
+  
+  // Konwersja wartości liczbowych
+  const netAmount = safeToFloat(row['Netto']);
+  const vatAmount = 0; // Brak kolumny VAT w pliku Sprzedaz.xlsx, ustawiamy na 0
+  const grossAmount = safeToFloat(row['Netto']); // Brak kolumny Brutto, używamy Netto
+  const quantity = safeToInteger(row['Ilość']) || 1;
+  const averageValue = safeToFloat(row['ŚREDNIA']);
+  
+  // Konwersja identyfikatorów na liczby całkowite (lub null jeśli konwersja się nie powiedzie)
+  const departmentId = safeToInteger(row['Oddział'] ? String(row['Oddział']).trim() : null);
+  const groupId = safeToInteger(row['Grupa'] ? String(row['Grupa']).trim() : null);
+  const serviceTypeId = safeToInteger(row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null);
+  
+  const customer = row['Kontrahent'] ? String(row['Kontrahent']).trim() : '';
+  
+  const result = {
+    date,
+    documentNumber,
+    description,
+    netAmount,
+    vatAmount,
+    grossAmount,
+    departmentId,
+    groupId,
+    serviceTypeId,
+    customer,
+    quantity,
+    averageValue
   };
+  
+  console.log('Zmapowane dane sprzedaży po konwersji typów:', JSON.stringify(result));
+  return result;
 };
 
 // Implementacja trybu testowego z danymi mock
@@ -304,6 +405,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
             processedRows++;
           } catch (err) {
             console.error('Błąd podczas przetwarzania wiersza zakupu:', err);
+            console.error('Szczegóły błędu:', JSON.stringify(err, null, 2));
             errorRows++;
             // Kontynuujemy przetwarzanie pozostałych wierszy
           }
@@ -343,6 +445,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
             processedRows++;
           } catch (err) {
             console.error('Błąd podczas przetwarzania wiersza wypłaty:', err);
+            console.error('Szczegóły błędu:', JSON.stringify(err, null, 2));
             errorRows++;
             // Kontynuujemy przetwarzanie pozostałych wierszy
           }
@@ -382,6 +485,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
             processedRows++;
           } catch (err) {
             console.error('Błąd podczas przetwarzania wiersza sprzedaży:', err);
+            console.error('Szczegóły błędu:', JSON.stringify(err, null, 2));
             errorRows++;
             // Kontynuujemy przetwarzanie pozostałych wierszy
           }
@@ -436,6 +540,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
     }
   } catch (err) {
     console.error('Upload error:', err);
+    console.error('Szczegóły błędu:', JSON.stringify(err, null, 2));
     
     // Jeśli plik został już utworzony w bazie, ale wystąpił błąd podczas przetwarzania,
     // aktualizujemy jego status na 'error'
