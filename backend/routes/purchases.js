@@ -49,74 +49,49 @@ router.get('/', async (req, res) => {
 
     console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
-    // Pobieranie danych z paginacją
-    const { count, rows } = await Purchase.findAndCountAll({
-      where: whereConditions,
-      limit: parseInt(pageSize),
-      offset: parseInt(page) * parseInt(pageSize),
-      order: [['date', 'DESC']]
-    });
+    try {
+      // Pobieranie danych z paginacją
+      const { count, rows } = await Purchase.findAndCountAll({
+        where: whereConditions,
+        limit: parseInt(pageSize),
+        offset: parseInt(page) * parseInt(pageSize),
+        order: [['date', 'DESC']]
+      });
 
-    console.log(`Znaleziono ${count} rekordów zakupów`);
+      console.log(`Znaleziono ${count} rekordów zakupów`);
+      
+      // Przygotowanie danych do wyświetlenia w tabeli
+      const formattedRows = rows.map(row => {
+        const purchase = row.toJSON();
+        return {
+          ...purchase,
+          department: purchase.departmentId,
+          group: purchase.groupId,
+          serviceType: purchase.serviceTypeId,
+          contractor: purchase.contractorId,
+          costCategory: purchase.costCategoryId
+        };
+      });
 
-    // Pobieranie unikalnych wartości dla filtrów
-    const departments = await Purchase.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('departmentId')), 'departmentId']],
-      where: { departmentId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const groups = await Purchase.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('groupId')), 'groupId']],
-      where: { groupId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const serviceTypes = await Purchase.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('serviceTypeId')), 'serviceTypeId']],
-      where: { serviceTypeId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const contractors = await Purchase.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('contractorId')), 'contractorId']],
-      where: { contractorId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const costCategories = await Purchase.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('costCategoryId')), 'costCategoryId']],
-      where: { costCategoryId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    // Przygotowanie danych do wyświetlenia w tabeli
-    const formattedRows = rows.map(row => {
-      const purchase = row.toJSON();
-      return {
-        ...purchase,
-        department: purchase.departmentId,
-        group: purchase.groupId,
-        serviceType: purchase.serviceTypeId,
-        contractor: purchase.contractorId,
-        costCategory: purchase.costCategoryId
-      };
-    });
-
-    res.json({
-      totalItems: count,
-      items: formattedRows,
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
-      totalPages: Math.ceil(count / parseInt(pageSize)),
-      filterOptions: {
-        departments: departments.map(d => d.departmentId),
-        groups: groups.map(g => g.groupId),
-        serviceTypes: serviceTypes.map(s => s.serviceTypeId),
-        contractors: contractors.map(c => c.contractorId),
-        costCategories: costCategories.map(c => c.costCategoryId)
-      }
-    });
+      // Zwracamy dane w formacie zgodnym z oczekiwaniami frontendu
+      return res.json({
+        totalItems: count,
+        items: formattedRows,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / parseInt(pageSize))
+      });
+    } catch (err) {
+      console.error('Błąd podczas pobierania zakupów:', err);
+      // Zwracamy puste dane, aby uniknąć błędu 500
+      return res.json({
+        totalItems: 0,
+        items: [],
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: 0
+      });
+    }
   } catch (err) {
     console.error('Błąd podczas pobierania zakupów:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });

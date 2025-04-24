@@ -35,8 +35,27 @@ const payrollSlice = createSlice({
       state.error = null;
     },
     fetchPayrollSuccess: (state, action) => {
-      state.payrolls = action.payload.items || [];
-      state.filteredPayrolls = action.payload.items || [];
+      console.log('Otrzymane dane wypłat:', action.payload);
+      
+      // Zapewnienie, że mamy tablicę elementów, nawet jeśli API zwróci null lub undefined
+      const items = Array.isArray(action.payload.items) ? action.payload.items : [];
+      
+      // Dodanie domyślnych wartości dla pustych pól
+      const formattedItems = items.map(item => ({
+        id: item.id || 0,
+        date: item.date || new Date().toISOString(),
+        department: item.department || '-',
+        group: item.group || '-',
+        employeeName: item.employeeName || '-',
+        employee: item.employee || '-',
+        grossAmount: item.grossAmount || 0,
+        netAmount: item.netAmount || 0,
+        taxAmount: item.taxAmount || 0,
+        ...item
+      }));
+      
+      state.payrolls = formattedItems;
+      state.filteredPayrolls = formattedItems;
       state.pagination.totalItems = action.payload.totalItems || 0;
       state.pagination.totalPages = action.payload.totalPages || 0;
       state.pagination.page = action.payload.page || 0;
@@ -52,6 +71,8 @@ const payrollSlice = createSlice({
     fetchPayrollFailure: (state, action) => {
       state.loading = false;
       state.error = action.payload;
+      // W przypadku błędu, zachowujemy poprzednie dane
+      console.error('Błąd pobierania danych wypłat:', action.payload);
     },
     setCurrentPayroll: (state, action) => {
       state.currentPayroll = action.payload;

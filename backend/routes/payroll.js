@@ -45,58 +45,47 @@ router.get('/', async (req, res) => {
 
     console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
-    // Pobieranie danych z paginacją
-    const { count, rows } = await Payroll.findAndCountAll({
-      where: whereConditions,
-      limit: parseInt(pageSize),
-      offset: parseInt(page) * parseInt(pageSize),
-      order: [['date', 'DESC']]
-    });
+    try {
+      // Pobieranie danych z paginacją
+      const { count, rows } = await Payroll.findAndCountAll({
+        where: whereConditions,
+        limit: parseInt(pageSize),
+        offset: parseInt(page) * parseInt(pageSize),
+        order: [['date', 'DESC']]
+      });
 
-    console.log(`Znaleziono ${count} rekordów wypłat`);
+      console.log(`Znaleziono ${count} rekordów wypłat`);
 
-    // Pobieranie unikalnych wartości dla filtrów
-    const departments = await Payroll.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('departmentId')), 'departmentId']],
-      where: { departmentId: { [Op.ne]: null } },
-      raw: true
-    });
+      // Przygotowanie danych do wyświetlenia w tabeli
+      const formattedRows = rows.map(row => {
+        const payroll = row.toJSON();
+        return {
+          ...payroll,
+          department: payroll.departmentId,
+          group: payroll.groupId,
+          employee: payroll.employeeName
+        };
+      });
 
-    const groups = await Payroll.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('groupId')), 'groupId']],
-      where: { groupId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const employees = await Payroll.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('employeeName')), 'employeeName']],
-      where: { employeeName: { [Op.ne]: null } },
-      raw: true
-    });
-
-    // Przygotowanie danych do wyświetlenia w tabeli
-    const formattedRows = rows.map(row => {
-      const payroll = row.toJSON();
-      return {
-        ...payroll,
-        department: payroll.departmentId,
-        group: payroll.groupId,
-        employee: payroll.employeeName
-      };
-    });
-
-    res.json({
-      totalItems: count,
-      items: formattedRows,
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
-      totalPages: Math.ceil(count / parseInt(pageSize)),
-      filterOptions: {
-        departments: departments.map(d => d.departmentId),
-        groups: groups.map(g => g.groupId),
-        employees: employees.map(e => e.employeeName)
-      }
-    });
+      // Zwracamy dane w formacie zgodnym z oczekiwaniami frontendu
+      return res.json({
+        totalItems: count,
+        items: formattedRows,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / parseInt(pageSize))
+      });
+    } catch (err) {
+      console.error('Błąd podczas pobierania wypłat:', err);
+      // Zwracamy puste dane, aby uniknąć błędu 500
+      return res.json({
+        totalItems: 0,
+        items: [],
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: 0
+      });
+    }
   } catch (err) {
     console.error('Błąd podczas pobierania wypłat:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });

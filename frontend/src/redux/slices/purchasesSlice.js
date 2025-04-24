@@ -39,8 +39,28 @@ const purchasesSlice = createSlice({
       state.error = null;
     },
     fetchPurchasesSuccess: (state, action) => {
-      state.purchases = action.payload.items || [];
-      state.filteredPurchases = action.payload.items || [];
+      console.log('Otrzymane dane zakupów:', action.payload);
+      
+      // Zapewnienie, że mamy tablicę elementów, nawet jeśli API zwróci null lub undefined
+      const items = Array.isArray(action.payload.items) ? action.payload.items : [];
+      
+      // Dodanie domyślnych wartości dla pustych pól
+      const formattedItems = items.map(item => ({
+        id: item.id || 0,
+        date: item.date || new Date().toISOString(),
+        department: item.department || '-',
+        group: item.group || '-',
+        serviceType: item.serviceType || '-',
+        contractor: item.contractor || '-',
+        costCategory: item.costCategory || '-',
+        netAmount: item.netAmount || 0,
+        vatAmount: item.vatAmount || 0,
+        grossAmount: item.grossAmount || 0,
+        ...item
+      }));
+      
+      state.purchases = formattedItems;
+      state.filteredPurchases = formattedItems;
       state.pagination.totalItems = action.payload.totalItems || 0;
       state.pagination.totalPages = action.payload.totalPages || 0;
       state.pagination.page = action.payload.page || 0;
@@ -56,6 +76,8 @@ const purchasesSlice = createSlice({
     fetchPurchasesFailure: (state, action) => {
       state.loading = false;
       state.error = action.payload;
+      // W przypadku błędu, zachowujemy poprzednie dane
+      console.error('Błąd pobierania danych zakupów:', action.payload);
     },
     setCurrentPurchase: (state, action) => {
       state.currentPurchase = action.payload;

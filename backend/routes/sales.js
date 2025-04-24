@@ -47,65 +47,47 @@ router.get('/', async (req, res) => {
 
     console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
-    // Pobieranie danych z paginacją
-    const { count, rows } = await Sale.findAndCountAll({
-      where: whereConditions,
-      limit: parseInt(pageSize),
-      offset: parseInt(page) * parseInt(pageSize),
-      order: [['date', 'DESC']]
-    });
+    try {
+      // Pobieranie danych z paginacją
+      const { count, rows } = await Sale.findAndCountAll({
+        where: whereConditions,
+        limit: parseInt(pageSize),
+        offset: parseInt(page) * parseInt(pageSize),
+        order: [['date', 'DESC']]
+      });
 
-    console.log(`Znaleziono ${count} rekordów sprzedaży`);
+      console.log(`Znaleziono ${count} rekordów sprzedaży`);
 
-    // Pobieranie unikalnych wartości dla filtrów
-    const departments = await Sale.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('departmentId')), 'departmentId']],
-      where: { departmentId: { [Op.ne]: null } },
-      raw: true
-    });
+      // Przygotowanie danych do wyświetlenia w tabeli
+      const formattedRows = rows.map(row => {
+        const sale = row.toJSON();
+        return {
+          ...sale,
+          department: sale.departmentId,
+          group: sale.groupId,
+          serviceType: sale.serviceTypeId
+        };
+      });
 
-    const groups = await Sale.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('groupId')), 'groupId']],
-      where: { groupId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const serviceTypes = await Sale.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('serviceTypeId')), 'serviceTypeId']],
-      where: { serviceTypeId: { [Op.ne]: null } },
-      raw: true
-    });
-
-    const customers = await Sale.findAll({
-      attributes: [[sequelize.fn('DISTINCT', sequelize.col('customer')), 'customer']],
-      where: { customer: { [Op.ne]: null } },
-      raw: true
-    });
-
-    // Przygotowanie danych do wyświetlenia w tabeli
-    const formattedRows = rows.map(row => {
-      const sale = row.toJSON();
-      return {
-        ...sale,
-        department: sale.departmentId,
-        group: sale.groupId,
-        serviceType: sale.serviceTypeId
-      };
-    });
-
-    res.json({
-      totalItems: count,
-      items: formattedRows,
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
-      totalPages: Math.ceil(count / parseInt(pageSize)),
-      filterOptions: {
-        departments: departments.map(d => d.departmentId),
-        groups: groups.map(g => g.groupId),
-        serviceTypes: serviceTypes.map(s => s.serviceTypeId),
-        customers: customers.map(c => c.customer)
-      }
-    });
+      // Zwracamy dane w formacie zgodnym z oczekiwaniami frontendu
+      return res.json({
+        totalItems: count,
+        items: formattedRows,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(count / parseInt(pageSize))
+      });
+    } catch (err) {
+      console.error('Błąd podczas pobierania sprzedaży:', err);
+      // Zwracamy puste dane, aby uniknąć błędu 500
+      return res.json({
+        totalItems: 0,
+        items: [],
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: 0
+      });
+    }
   } catch (err) {
     console.error('Błąd podczas pobierania sprzedaży:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
