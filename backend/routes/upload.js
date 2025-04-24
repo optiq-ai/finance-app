@@ -210,9 +210,10 @@ const MOCK_MODE = false; // Ustaw na true, aby włączyć tryb testowy
  */
 router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => {
   // Rozpoczęcie transakcji
-  const transaction = await sequelize.transaction();
+  let transaction;
   
   try {
+    transaction = await sequelize.transaction();
     console.log('Rozpoczęcie przetwarzania pliku...');
     
     // Tryb testowy z danymi mock
@@ -342,33 +343,45 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       }
     }
 
-    // Aktualizacja informacji o pliku
-    console.log('Aktualizacja statusu pliku, przetworzono wierszy:', processedRows);
-    await importedFile.update({
-      status: 'completed',
-      rowsCount: processedRows
-    }, { transaction });
+    try {
+      // Aktualizacja informacji o pliku
+      console.log('Aktualizacja statusu pliku, przetworzono wierszy:', processedRows);
+      await ImportedFile.update(
+        {
+          status: 'completed',
+          rowsCount: processedRows
+        }, 
+        { 
+          where: { id: importedFile.id },
+          transaction 
+        }
+      );
 
-    // Zatwierdzenie transakcji
-    await transaction.commit();
+      // Zatwierdzenie transakcji
+      await transaction.commit();
 
-    console.log('Przetwarzanie pliku zakończone pomyślnie');
-    res.status(201).json({
-      message: 'Plik został pomyślnie przesłany i przetworzony',
-      importedFile: {
-        id: importedFile.id,
-        fileName: req.file.originalname,
-        filePath: req.file.path,
-        fileSize: req.file.size,
-        type: type,
-        status: 'completed',
+      console.log('Przetwarzanie pliku zakończone pomyślnie');
+      res.status(201).json({
+        message: 'Plik został pomyślnie przesłany i przetworzony',
+        importedFile: {
+          id: importedFile.id,
+          fileName: req.file.originalname,
+          filePath: req.file.path,
+          fileSize: req.file.size,
+          type: type,
+          status: 'completed',
+          processedRows: processedRows
+        },
         processedRows: processedRows
-      },
-      processedRows: processedRows
-    });
+      });
+    } catch (updateErr) {
+      console.error('Błąd podczas aktualizacji statusu pliku:', updateErr);
+      await transaction.rollback();
+      res.status(500).json({ message: 'Błąd podczas aktualizacji statusu pliku', error: updateErr.message });
+    }
   } catch (err) {
     // Wycofanie transakcji w przypadku błędu
-    await transaction.rollback();
+    if (transaction) await transaction.rollback();
     console.error('Upload error:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
