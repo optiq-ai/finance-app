@@ -48,24 +48,36 @@ const storage = multer.diskStorage({
   }
 });
 
+// Funkcja do sprawdzania typu pliku
+const fileFilter = (req, file, cb) => {
+  try {
+    console.log('Sprawdzanie typu pliku:', file.originalname, 'mimetype:', file.mimetype);
+    
+    // Akceptujemy pliki Excel (.xlsx, .xls) oraz CSV
+    const filetypes = /xlsx|xls|csv/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    
+    // Sprawdzamy mimetype - może być różny w zależności od przeglądarki
+    const mimetypes = /application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application\/vnd.ms-excel|application\/octet-stream|text\/csv/;
+    const mimetype = mimetypes.test(file.mimetype);
+    
+    if (extname || mimetype) {
+      console.log('Plik zaakceptowany:', file.originalname);
+      return cb(null, true);
+    } else {
+      console.log('Plik odrzucony - nieprawidłowy format:', file.originalname, file.mimetype);
+      cb(new Error('Dozwolone są tylko pliki Excel (.xlsx, .xls) oraz CSV'));
+    }
+  } catch (err) {
+    console.error('Błąd podczas sprawdzania typu pliku:', err);
+    cb(err);
+  }
+};
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    try {
-      const filetypes = /xlsx|xls/;
-      const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = filetypes.test(file.mimetype);
-      
-      if (extname && mimetype) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Dozwolone są tylko pliki Excel (.xlsx, .xls)'));
-      }
-    } catch (err) {
-      cb(err);
-    }
-  }
+  fileFilter
 });
 
 // Middleware do obsługi błędów multer
@@ -80,6 +92,64 @@ const handleMulterErrors = (err, req, res, next) => {
   next();
 };
 
+// Funkcja do parsowania pliku Excel/CSV
+const parseFile = (filePath) => {
+  console.log('Parsowanie pliku:', filePath);
+  
+  try {
+    // Sprawdzenie rozszerzenia pliku
+    const ext = path.extname(filePath).toLowerCase();
+    
+    if (ext === '.csv') {
+      // Parsowanie pliku CSV
+      const content = fs.readFileSync(filePath, 'utf8');
+      const rows = content.split('\n');
+      const headers = rows[0].split(',').map(h => h.trim());
+      
+      const data = [];
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i].trim() === '') continue;
+        
+        const values = rows[i].split(',').map(v => v.trim());
+        const row = {};
+        
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        
+        data.push(row);
+      }
+      
+      console.log(`Odczytano ${data.length} wierszy z pliku CSV`);
+      return data;
+    } else {
+      // Parsowanie pliku Excel
+      const workbook = xlsx.readFile(filePath, { 
+        cellDates: true,  // Konwertuj daty na obiekty Date
+        dateNF: 'yyyy-mm-dd', // Format daty
+        raw: false // Nie zwracaj surowych wartości
+      });
+      
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = xlsx.utils.sheet_to_json(worksheet, { 
+        raw: false, 
+        dateNF: 'yyyy-mm-dd',
+        defval: '' // Domyślna wartość dla pustych komórek
+      });
+      
+      console.log(`Odczytano ${data.length} wierszy z pliku Excel`);
+      return data;
+    }
+  } catch (err) {
+    console.error('Błąd podczas parsowania pliku:', err);
+    throw new Error(`Błąd podczas parsowania pliku: ${err.message}`);
+  }
+};
+
+// Implementacja trybu testowego z danymi mock
+const MOCK_MODE = false; // Ustaw na true, aby włączyć tryb testowy
+
 /**
  * @route   POST /api/upload
  * @desc    Przesyłanie pliku Excel
@@ -91,16 +161,42 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
   
   try {
     console.log('Rozpoczęcie przetwarzania pliku...');
+    
+    // Tryb testowy z danymi mock
+    if (MOCK_MODE) {
+      console.log('Używanie trybu testowego z danymi mock');
+      const mockFile = {
+        id: Date.now(),
+        fileName: req.body.type === 'purchases' ? 'zakupy_testowe.xlsx' : 
+                 req.body.type === 'payroll' ? 'wyplaty_testowe.xlsx' : 'sprzedaz_testowa.xlsx',
+        filePath: '/mock/path',
+        fileSize: 1024,
+        type: req.body.type,
+        status: 'completed',
+        processedRows: 10
+      };
+      
+      await transaction.commit();
+      return res.status(201).json({
+        message: 'Plik został pomyślnie przesłany i przetworzony (tryb testowy)',
+        importedFile: mockFile,
+        processedRows: mockFile.processedRows
+      });
+    }
+    
     if (!req.file) {
       console.log('Błąd: Nie przesłano pliku');
+      await transaction.rollback();
       return res.status(400).json({ message: 'Nie przesłano pliku' });
     }
 
+    console.log('Otrzymano plik:', req.file);
     const { type } = req.body;
     console.log('Typ przesłanego pliku:', type);
     
     if (!type || !['purchases', 'payroll', 'sales'].includes(type)) {
       console.log('Błąd: Nieprawidłowy typ danych:', type);
+      await transaction.rollback();
       return res.status(400).json({ message: 'Nieprawidłowy typ danych' });
     }
 
@@ -116,19 +212,19 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
     }, { transaction });
     console.log('Utworzono rekord ImportedFile:', importedFile.id);
 
-    // Odczytanie pliku Excel
-    console.log('Odczytywanie pliku Excel:', req.file.path);
-    let workbook, data;
+    // Odczytanie pliku Excel/CSV
+    console.log('Odczytywanie pliku:', req.file.path);
+    let data;
     try {
-      workbook = xlsx.readFile(req.file.path);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      data = xlsx.utils.sheet_to_json(worksheet);
-      console.log('Odczytano wierszy z pliku Excel:', data.length);
+      data = parseFile(req.file.path);
     } catch (err) {
-      console.error('Błąd podczas odczytu pliku Excel:', err);
-      await transaction.rollback();
-      return res.status(400).json({ message: `Błąd podczas odczytu pliku Excel: ${err.message}` });
+      console.error('Błąd podczas odczytu pliku:', err);
+      await importedFile.update({
+        status: 'error',
+        errorMessage: err.message
+      }, { transaction });
+      await transaction.commit(); // Zapisujemy informację o błędzie
+      return res.status(400).json({ message: `Błąd podczas odczytu pliku: ${err.message}` });
     }
 
     let processedRows = 0;
@@ -249,6 +345,34 @@ router.get('/history', async (req, res) => {
   try {
     console.log('Pobieranie historii przesłanych plików...');
     
+    // Tryb testowy z danymi mock
+    if (MOCK_MODE) {
+      console.log('Używanie trybu testowego z danymi mock dla historii');
+      const mockHistory = [
+        {
+          id: 1,
+          fileName: 'zakupy_testowe.xlsx',
+          fileSize: 1024,
+          type: 'purchases',
+          status: 'completed',
+          processedRows: 10,
+          createdAt: new Date(),
+          date: new Date()
+        },
+        {
+          id: 2,
+          fileName: 'wyplaty_testowe.xlsx',
+          fileSize: 2048,
+          type: 'payroll',
+          status: 'completed',
+          processedRows: 5,
+          createdAt: new Date(Date.now() - 86400000), // wczoraj
+          date: new Date(Date.now() - 86400000)
+        }
+      ];
+      return res.json(mockHistory);
+    }
+    
     // Pobieranie rzeczywistych danych z bazy
     const importedFiles = await ImportedFile.findAll({
       order: [['importDate', 'DESC']]
@@ -286,6 +410,27 @@ router.get('/:id', async (req, res) => {
   try {
     const fileId = req.params.id;
     console.log(`Pobieranie szczegółów pliku o ID: ${fileId}`);
+    
+    // Tryb testowy z danymi mock
+    if (MOCK_MODE) {
+      console.log('Używanie trybu testowego z danymi mock dla szczegółów pliku');
+      const mockDetails = {
+        id: fileId,
+        fileName: 'zakupy_testowe.xlsx',
+        filePath: '/mock/path',
+        fileSize: 1024,
+        type: 'purchases',
+        status: 'completed',
+        processedRows: 10,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sampleData: [
+          { date: new Date(), documentNumber: 'DOC-001', description: 'Testowy zakup 1', netAmount: 100, vatAmount: 23, grossAmount: 123 },
+          { date: new Date(), documentNumber: 'DOC-002', description: 'Testowy zakup 2', netAmount: 200, vatAmount: 46, grossAmount: 246 }
+        ]
+      };
+      return res.json(mockDetails);
+    }
     
     // Pobieranie rzeczywistych danych z bazy
     const importedFile = await ImportedFile.findByPk(fileId);
@@ -353,6 +498,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const fileId = req.params.id;
     console.log(`Usuwanie pliku o ID: ${fileId}`);
+    
+    // Tryb testowy z danymi mock
+    if (MOCK_MODE) {
+      console.log('Używanie trybu testowego z danymi mock dla usuwania pliku');
+      return res.json({ message: 'Plik i powiązane dane zostały usunięte (tryb testowy)' });
+    }
     
     // Pobieranie informacji o pliku
     const importedFile = await ImportedFile.findByPk(fileId);

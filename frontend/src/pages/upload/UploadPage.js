@@ -17,7 +17,12 @@ import {
   Step,
   StepLabel,
   IconButton,
-  Tooltip
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -25,7 +30,8 @@ import {
   Error as ErrorIcon,
   Description as FileIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import {
   uploadStart,
@@ -48,11 +54,21 @@ const UploadPage = () => {
   const { uploadStatus, uploadProgress: progress, uploadedFiles, fileHistory, isLoadingHistory, error } = useSelector((state) => state.upload);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileType, setFileType] = useState('');
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorDetails, setErrorDetails] = useState('');
   
   // Pobieranie historii importów przy ładowaniu komponentu
   useEffect(() => {
     fetchUploadHistory();
   }, []);
+
+  // Otwieranie dialogu z błędem, gdy pojawi się nowy błąd
+  useEffect(() => {
+    if (error) {
+      setErrorDetails(error);
+      setErrorDialogOpen(true);
+    }
+  }, [error]);
 
   const fetchUploadHistory = async () => {
     try {
@@ -60,16 +76,35 @@ const UploadPage = () => {
       const history = await uploadService.getUploadHistory();
       dispatch(fetchHistorySuccess(history));
     } catch (err) {
-      dispatch(fetchHistoryFailure(err.message));
+      console.error('Error fetching upload history:', err);
+      dispatch(fetchHistoryFailure(err.message || 'Błąd pobierania historii przesłanych plików'));
     }
   };
 
   const handleFileChange = (event) => {
-    setSelectedFile(event.target.files[0]);
+    const file = event.target.files[0];
+    if (file) {
+      // Sprawdzenie rozszerzenia pliku
+      const fileExt = file.name.split('.').pop().toLowerCase();
+      if (!['xlsx', 'xls', 'csv'].includes(fileExt)) {
+        dispatch(uploadFailure(`Nieprawidłowy format pliku. Dozwolone są tylko pliki Excel (.xlsx, .xls) oraz CSV (.csv). Wybrany plik: ${file.name}`));
+        return;
+      }
+      
+      // Sprawdzenie rozmiaru pliku (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        dispatch(uploadFailure(`Plik jest zbyt duży. Maksymalny rozmiar to 10MB. Rozmiar wybranego pliku: ${(file.size / (1024 * 1024)).toFixed(2)}MB`));
+        return;
+      }
+      
+      setSelectedFile(file);
+      dispatch(resetUploadStatus());
+    }
   };
   
   const handleFileTypeChange = (type) => {
     setFileType(type);
+    dispatch(resetUploadStatus());
   };
   
   const handleUpload = async () => {
@@ -97,7 +132,8 @@ const UploadPage = () => {
       // Odświeżenie historii importów po pomyślnym przesłaniu pliku
       fetchUploadHistory();
     } catch (err) {
-      dispatch(uploadFailure(err.message));
+      console.error('Upload error:', err);
+      dispatch(uploadFailure(err.message || 'Wystąpił błąd podczas przesyłania pliku'));
     }
   };
   
@@ -106,9 +142,18 @@ const UploadPage = () => {
       dispatch(deleteFileStart());
       await uploadService.deleteUpload(id);
       dispatch(deleteFileSuccess(id));
+      
+      // Odświeżenie historii importów po usunięciu pliku
+      fetchUploadHistory();
     } catch (err) {
-      dispatch(deleteFileFailure(err.message));
+      console.error('Delete file error:', err);
+      dispatch(deleteFileFailure(err.message || 'Wystąpił błąd podczas usuwania pliku'));
     }
+  };
+  
+  const handleCloseErrorDialog = () => {
+    setErrorDialogOpen(false);
+    dispatch(resetUploadStatus());
   };
   
   const steps = ['Wybierz plik', 'Określ typ danych', 'Prześlij plik', 'Weryfikacja'];
@@ -130,14 +175,26 @@ const UploadPage = () => {
         </Stepper>
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
+          <Alert 
+            severity="error" 
+            sx={{ mb: 3 }}
+            action={
+              <Button 
+                color="inherit" 
+                size="small"
+                onClick={() => setErrorDialogOpen(true)}
+              >
+                Szczegóły
+              </Button>
+            }
+          >
+            Wystąpił błąd podczas przesyłania pliku
           </Alert>
         )}
         
         {uploadStatus === 'success' && (
           <Alert severity="success" sx={{ mb: 3 }}>
-            Plik został pomyślnie przesłany i przetworzony.
+            Plik został pomyślnie przesłany i przetworzony. Liczba przetworzonych wierszy: {uploadedFiles?.processedRows || 0}
           </Alert>
         )}
         
@@ -149,7 +206,7 @@ const UploadPage = () => {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 3 }}>
                 <input
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   style={{ display: 'none' }}
                   id="file-upload"
                   type="file"
@@ -163,15 +220,21 @@ const UploadPage = () => {
                     startIcon={<UploadIcon />}
                     disabled={uploadStatus === 'uploading'}
                   >
-                    Wybierz plik Excel
+                    Wybierz plik Excel/CSV
                   </Button>
                 </label>
                 {selectedFile && (
                   <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
                     <FileIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography>{selectedFile.name}</Typography>
+                    <Typography>
+                      {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                    </Typography>
                   </Box>
                 )}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+                  Dozwolone formaty: .xlsx, .xls, .csv<br />
+                  Maksymalny rozmiar pliku: 10MB
+                </Typography>
               </Box>
             </Paper>
             
@@ -302,6 +365,52 @@ const UploadPage = () => {
           </Grid>
         </Grid>
       </Paper>
+      
+      {/* Dialog ze szczegółami błędu */}
+      <Dialog
+        open={errorDialogOpen}
+        onClose={handleCloseErrorDialog}
+        aria-labelledby="error-dialog-title"
+        aria-describedby="error-dialog-description"
+      >
+        <DialogTitle id="error-dialog-title" sx={{ display: 'flex', alignItems: 'center' }}>
+          <ErrorIcon color="error" sx={{ mr: 1 }} />
+          Błąd podczas przesyłania pliku
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="error-dialog-description">
+            {errorDetails}
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" component="div" sx={{ mb: 1 }}>
+              Możliwe przyczyny błędu:
+            </Typography>
+            <ul>
+              <li>Nieprawidłowy format pliku (dozwolone są tylko pliki Excel .xlsx, .xls oraz CSV .csv)</li>
+              <li>Plik jest uszkodzony lub ma nieprawidłową strukturę</li>
+              <li>Brak wymaganych kolumn w pliku</li>
+              <li>Nieprawidłowe dane w pliku (np. tekst zamiast liczby)</li>
+              <li>Problem z połączeniem z serwerem</li>
+            </ul>
+          </DialogContentText>
+          <DialogContentText>
+            <Typography variant="subtitle2" component="div" sx={{ mb: 1 }}>
+              Zalecane działania:
+            </Typography>
+            <ul>
+              <li>Sprawdź format i strukturę pliku</li>
+              <li>Upewnij się, że plik zawiera wszystkie wymagane kolumny</li>
+              <li>Sprawdź, czy dane w pliku są poprawne</li>
+              <li>Spróbuj ponownie później</li>
+            </ul>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseErrorDialog} color="primary" autoFocus>
+            Zamknij
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
