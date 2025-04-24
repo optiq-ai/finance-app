@@ -1,51 +1,55 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('./index');
 
-const ImportedFile = sequelize.define('ImportedFile', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  fileName: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  filePath: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  fileSize: {
-    type: DataTypes.INTEGER,
-    allowNull: false
-  },
-  type: {
-    type: DataTypes.ENUM('purchases', 'payroll', 'sales'),
-    allowNull: false
-  },
-  status: {
-    type: DataTypes.ENUM('pending', 'processing', 'completed', 'error'),
-    defaultValue: 'pending'
-  },
-  processedRows: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  },
-  errorMessage: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  importedBy: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'users',
-      key: 'id'
+module.exports = (sequelize) => {
+  const ImportedFile = sequelize.define('ImportedFile', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    filename: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    originalFilename: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    fileType: {
+      type: DataTypes.ENUM('purchase', 'payroll', 'sale'),
+      allowNull: false
+    },
+    importDate: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
+    },
+    rowsCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    importedBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    status: {
+      type: DataTypes.ENUM('pending', 'processing', 'completed', 'error'),
+      allowNull: false,
+      defaultValue: 'pending'
+    },
+    errorMessage: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
-  }
-}, {
-  tableName: 'imported_files',
-  timestamps: true
-});
+  }, {
+    tableName: 'imported_files',
+    timestamps: true
+  });
 
-module.exports = ImportedFile;
+  return ImportedFile;
+};

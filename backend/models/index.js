@@ -1,5 +1,7 @@
 const { Sequelize } = require('sequelize');
 const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs');
 
 // Załadowanie zmiennych środowiskowych
 dotenv.config();
@@ -23,19 +25,19 @@ const sequelize = new Sequelize(
   }
 );
 
-// Import modeli
-const User = require('./User');
-const Department = require('./Department');
-const Group = require('./Group');
-const ServiceType = require('./ServiceType');
-const Contractor = require('./Contractor');
-const CostCategory = require('./CostCategory');
-const Purchase = require('./Purchase');
-const Payroll = require('./Payroll');
-const Sale = require('./Sale');
-const ImportedFile = require('./ImportedFile');
-const SavedView = require('./SavedView');
-const ApplicationLog = require('./ApplicationLog');
+// Inicjalizacja modeli
+const User = require('./User')(sequelize);
+const Department = require('./Department')(sequelize);
+const Group = require('./Group')(sequelize);
+const ServiceType = require('./ServiceType')(sequelize);
+const Contractor = require('./Contractor')(sequelize);
+const CostCategory = require('./CostCategory')(sequelize);
+const ImportedFile = require('./ImportedFile')(sequelize);
+const Purchase = require('./Purchase')(sequelize);
+const Payroll = require('./Payroll')(sequelize);
+const Sale = require('./Sale')(sequelize);
+const SavedView = require('./SavedView')(sequelize);
+const ApplicationLog = require('./ApplicationLog')(sequelize);
 
 // Definicja relacji między modelami
 Department.hasMany(Group, { foreignKey: 'departmentId' });
