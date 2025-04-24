@@ -34,6 +34,7 @@ const uploadService = {
       const response = await api.get('/upload/history');
       return response.data;
     } catch (error) {
+      console.error('Error fetching upload history:', error);
       throw new Error(error.response?.data?.message || 'Błąd pobierania historii przesłanych plików');
     }
   },

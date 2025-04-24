@@ -5,6 +5,8 @@ const initialState = {
   uploadProgress: 0,
   uploadedFiles: [],
   currentFile: null,
+  fileHistory: [],
+  isLoadingHistory: false,
   error: null
 };
 
@@ -23,8 +25,8 @@ const uploadSlice = createSlice({
     uploadSuccess: (state, action) => {
       state.uploadStatus = 'success';
       state.uploadProgress = 100;
-      state.uploadedFiles = [...state.uploadedFiles, action.payload];
-      state.currentFile = action.payload;
+      state.uploadedFiles = [...state.uploadedFiles, action.payload.importedFile];
+      state.currentFile = action.payload.importedFile;
       state.error = null;
     },
     uploadFailure: (state, action) => {
@@ -38,6 +40,32 @@ const uploadSlice = createSlice({
     },
     setCurrentFile: (state, action) => {
       state.currentFile = action.payload;
+    },
+    fetchHistoryStart: (state) => {
+      state.isLoadingHistory = true;
+      state.error = null;
+    },
+    fetchHistorySuccess: (state, action) => {
+      state.isLoadingHistory = false;
+      state.fileHistory = action.payload;
+      state.error = null;
+    },
+    fetchHistoryFailure: (state, action) => {
+      state.isLoadingHistory = false;
+      state.error = action.payload;
+    },
+    deleteFileStart: (state) => {
+      state.error = null;
+    },
+    deleteFileSuccess: (state, action) => {
+      state.fileHistory = state.fileHistory.filter(file => file.id !== action.payload);
+      state.uploadedFiles = state.uploadedFiles.filter(file => file.id !== action.payload);
+      if (state.currentFile && state.currentFile.id === action.payload) {
+        state.currentFile = null;
+      }
+    },
+    deleteFileFailure: (state, action) => {
+      state.error = action.payload;
     }
   }
 });
@@ -48,7 +76,13 @@ export const {
   uploadSuccess,
   uploadFailure,
   resetUploadStatus,
-  setCurrentFile
+  setCurrentFile,
+  fetchHistoryStart,
+  fetchHistorySuccess,
+  fetchHistoryFailure,
+  deleteFileStart,
+  deleteFileSuccess,
+  deleteFileFailure
 } = uploadSlice.actions;
 
 export default uploadSlice.reducer;

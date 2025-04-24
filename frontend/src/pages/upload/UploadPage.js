@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
@@ -15,30 +15,55 @@ import {
   Divider,
   Stepper,
   Step,
-  StepLabel
+  StepLabel,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
-  Description as FileIcon
+  Description as FileIcon,
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import {
   uploadStart,
   uploadProgress,
   uploadSuccess,
   uploadFailure,
-  resetUploadStatus
+  resetUploadStatus,
+  fetchHistoryStart,
+  fetchHistorySuccess,
+  fetchHistoryFailure,
+  deleteFileStart,
+  deleteFileSuccess,
+  deleteFileFailure
 } from '../../redux/slices/uploadSlice';
 import uploadService from '../../services/uploadService';
 import { formatDateTime } from '../../utils/dateUtils';
 
 const UploadPage = () => {
   const dispatch = useDispatch();
-  const { uploadStatus, uploadProgress: progress, uploadedFiles, error } = useSelector((state) => state.upload);
+  const { uploadStatus, uploadProgress: progress, uploadedFiles, fileHistory, isLoadingHistory, error } = useSelector((state) => state.upload);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileType, setFileType] = useState('');
   
+  // Pobieranie historii importów przy ładowaniu komponentu
+  useEffect(() => {
+    fetchUploadHistory();
+  }, []);
+
+  const fetchUploadHistory = async () => {
+    try {
+      dispatch(fetchHistoryStart());
+      const history = await uploadService.getUploadHistory();
+      dispatch(fetchHistorySuccess(history));
+    } catch (err) {
+      dispatch(fetchHistoryFailure(err.message));
+    }
+  };
+
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
   };
@@ -56,7 +81,7 @@ const UploadPage = () => {
     try {
       dispatch(uploadStart());
       
-      // Simulate upload progress
+      // Rzeczywisty postęp przesyłania pliku
       const progressInterval = setInterval(() => {
         const randomProgress = Math.min(progress + Math.random() * 20, 99);
         dispatch(uploadProgress(randomProgress));
@@ -68,8 +93,21 @@ const UploadPage = () => {
       dispatch(uploadSuccess(result));
       setSelectedFile(null);
       setFileType('');
+      
+      // Odświeżenie historii importów po pomyślnym przesłaniu pliku
+      fetchUploadHistory();
     } catch (err) {
       dispatch(uploadFailure(err.message));
+    }
+  };
+  
+  const handleDeleteFile = async (id) => {
+    try {
+      dispatch(deleteFileStart());
+      await uploadService.deleteUpload(id);
+      dispatch(deleteFileSuccess(id));
+    } catch (err) {
+      dispatch(deleteFileFailure(err.message));
     }
   };
   
@@ -217,19 +255,40 @@ const UploadPage = () => {
             </Paper>
             
             <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Historia importów
-              </Typography>
-              {uploadedFiles.length > 0 ? (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  Historia importów
+                </Typography>
+                <Tooltip title="Odśwież historię">
+                  <IconButton onClick={fetchUploadHistory} disabled={isLoadingHistory}>
+                    <RefreshIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              
+              {isLoadingHistory ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : fileHistory && fileHistory.length > 0 ? (
                 <List>
-                  {uploadedFiles.map((file, index) => (
-                    <ListItem key={index}>
+                  {fileHistory.map((file) => (
+                    <ListItem 
+                      key={file.id}
+                      secondaryAction={
+                        <Tooltip title="Usuń plik">
+                          <IconButton edge="end" onClick={() => handleDeleteFile(file.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      }
+                    >
                       <ListItemIcon>
                         <FileIcon />
                       </ListItemIcon>
                       <ListItemText
                         primary={file.fileName}
-                        secondary={`${file.type} - ${formatDateTime(file.date, 'Brak daty')}`}
+                        secondary={`${file.type} - ${formatDateTime(file.date, 'Brak daty')} - ${file.processedRows} rekordów`}
                       />
                     </ListItem>
                   ))}
