@@ -15,7 +15,7 @@ const MainMenu = () => {
   const location = useLocation();
   
   const isActive = (path) => {
-    return location.pathname.includes(path);
+    return location.pathname.includes('/app' + path);
   };
   
   return (

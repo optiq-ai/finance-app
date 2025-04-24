@@ -29,38 +29,38 @@ const MainLayout = () => {
       </Toolbar>
       <Divider />
       <List>
-        <ListItem button component={Link} to="/dashboard">
+        <ListItem button component={Link} to="/app/dashboard">
           <ListItemIcon>
             <DashboardIcon />
           </ListItemIcon>
           <ListItemText primary="Dashboard" />
         </ListItem>
-        <ListItem button component={Link} to="/purchases">
+        <ListItem button component={Link} to="/app/purchases">
           <ListItemIcon>
             <ShoppingCartIcon />
           </ListItemIcon>
           <ListItemText primary="Zakupy" />
         </ListItem>
-        <ListItem button component={Link} to="/payroll">
+        <ListItem button component={Link} to="/app/payroll">
           <ListItemIcon>
             <PeopleIcon />
           </ListItemIcon>
           <ListItemText primary="Wypłaty" />
         </ListItem>
-        <ListItem button component={Link} to="/sales">
+        <ListItem button component={Link} to="/app/sales">
           <ListItemIcon>
             <BarChartIcon />
           </ListItemIcon>
           <ListItemText primary="Sprzedaż" />
         </ListItem>
-        <ListItem button component={Link} to="/dictionaries">
+        <ListItem button component={Link} to="/app/dictionaries">
           <ListItemIcon>
             <LayersIcon />
           </ListItemIcon>
           <ListItemText primary="Słowniki" />
         </ListItem>
         <Divider />
-        <ListItem button component={Link} to="/diagnostic">
+        <ListItem button component={Link} to="/app/diagnostic">
           <ListItemIcon>
             <BugReportIcon />
           </ListItemIcon>
