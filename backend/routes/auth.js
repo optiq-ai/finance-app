@@ -1,36 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 
 /**
  * @route   POST /api/auth/login
- * @desc    Logowanie użytkownika
+ * @desc    Automatyczne logowanie użytkownika (autoryzacja wyłączona)
  * @access  Public
  */
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-
-    // Sprawdzenie czy użytkownik istnieje
-    const user = await User.findOne({ where: { username } });
-    if (!user) {
-      return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
-    }
-
-    // Sprawdzenie hasła
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
-    }
+    // Utworzenie domyślnego użytkownika (autoryzacja wyłączona)
+    const defaultUser = {
+      id: 1,
+      username: 'admin',
+      email: 'admin@example.com',
+      role: 'admin',
+      preferences: {
+        darkMode: false,
+        notifications: true,
+        language: 'pl'
+      }
+    };
 
     // Utworzenie tokenu JWT
     const payload = {
       user: {
-        id: user.id,
-        username: user.username,
-        role: user.role
+        id: defaultUser.id,
+        username: defaultUser.username,
+        role: defaultUser.role
       }
     };
 
@@ -42,13 +40,7 @@ router.post('/login', async (req, res) => {
         if (err) throw err;
         res.json({
           token,
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            preferences: user.preferences
-          }
+          user: defaultUser
         });
       }
     );
@@ -60,21 +52,25 @@ router.post('/login', async (req, res) => {
 
 /**
  * @route   GET /api/auth/me
- * @desc    Pobranie danych zalogowanego użytkownika
- * @access  Private
+ * @desc    Pobranie danych zalogowanego użytkownika (autoryzacja wyłączona)
+ * @access  Public
  */
 router.get('/me', async (req, res) => {
   try {
-    // Middleware auth powinien dodać req.user
-    const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] }
-    });
+    // Zwracanie domyślnego użytkownika (autoryzacja wyłączona)
+    const defaultUser = {
+      id: 1,
+      username: 'admin',
+      email: 'admin@example.com',
+      role: 'admin',
+      preferences: {
+        darkMode: false,
+        notifications: true,
+        language: 'pl'
+      }
+    };
 
-    if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
-    }
-
-    res.json(user);
+    res.json(defaultUser);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Błąd serwera' });
@@ -83,30 +79,12 @@ router.get('/me', async (req, res) => {
 
 /**
  * @route   POST /api/auth/change-password
- * @desc    Zmiana hasła użytkownika
- * @access  Private
+ * @desc    Zmiana hasła użytkownika (autoryzacja wyłączona)
+ * @access  Public
  */
 router.post('/change-password', async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
-
-    // Pobranie użytkownika
-    const user = await User.findByPk(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
-    }
-
-    // Sprawdzenie aktualnego hasła
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Aktualne hasło jest nieprawidłowe' });
-    }
-
-    // Hashowanie nowego hasła
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-    await user.save();
-
+    // Symulacja zmiany hasła (autoryzacja wyłączona)
     res.json({ message: 'Hasło zostało zmienione' });
   } catch (err) {
     console.error(err.message);

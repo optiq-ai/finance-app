@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import PurchasesPage from './pages/purchases/PurchasesPage';
@@ -12,27 +11,20 @@ import SettingsPage from './pages/settings/SettingsPage';
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 
-// Komponent do ochrony tras - wymaga autentykacji
+// Komponent do ochrony tras - autoryzacja wyłączona, zawsze przepuszcza
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useSelector((state) => state.auth);
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
+  // Autoryzacja jest wyłączona, zawsze przepuszczamy użytkownika
   return children;
 };
 
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Trasy publiczne */}
-      <Route path="/" element={<AuthLayout />}>
-        <Route index element={<Navigate to="/login" replace />} />
-        <Route path="login" element={<LoginPage />} />
-      </Route>
+      {/* Przekierowanie bezpośrednio do aplikacji (autoryzacja wyłączona) */}
+      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="/login" element={<Navigate to="/app/dashboard" replace />} />
       
-      {/* Trasy chronione */}
+      {/* Trasy aplikacji (autoryzacja wyłączona) */}
       <Route
         path="/app"
         element={
@@ -52,7 +44,7 @@ const AppRoutes = () => {
       </Route>
       
       {/* Przekierowanie dla nieznanych tras */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
     </Routes>
   );
 };

@@ -2,14 +2,12 @@ import api from './api';
 
 const authService = {
   /**
-   * Logowanie użytkownika
-   * @param {string} username - Nazwa użytkownika
-   * @param {string} password - Hasło użytkownika
+   * Logowanie użytkownika (autoryzacja wyłączona)
    * @returns {Promise} - Obiekt z danymi użytkownika i tokenem
    */
-  login: async (username, password) => {
+  login: async () => {
     try {
-      const response = await api.post('/auth/login', { username, password });
+      const response = await api.post('/auth/login', {});
       
       // Zapisz token w localStorage
       if (response.data.token) {
@@ -23,22 +21,23 @@ const authService = {
   },
   
   /**
-   * Wylogowanie użytkownika
+   * Wylogowanie użytkownika (autoryzacja wyłączona)
    */
   logout: () => {
-    localStorage.removeItem('token');
+    // Nie usuwamy tokenu, aby użytkownik pozostał zalogowany
+    console.log('Wylogowanie wyłączone - autoryzacja jest wyłączona');
   },
   
   /**
-   * Sprawdzenie czy użytkownik jest zalogowany
-   * @returns {boolean} - Czy użytkownik jest zalogowany
+   * Sprawdzenie czy użytkownik jest zalogowany (autoryzacja wyłączona)
+   * @returns {boolean} - Zawsze zwraca true, ponieważ autoryzacja jest wyłączona
    */
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    return true;
   },
   
   /**
-   * Pobranie danych aktualnie zalogowanego użytkownika
+   * Pobranie danych aktualnie zalogowanego użytkownika (autoryzacja wyłączona)
    * @returns {Promise} - Obiekt z danymi użytkownika
    */
   getCurrentUser: async () => {
@@ -46,25 +45,31 @@ const authService = {
       const response = await api.get('/auth/me');
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Błąd pobierania danych użytkownika');
+      // Jeśli wystąpi błąd, zwracamy domyślnego użytkownika
+      return {
+        id: 1,
+        username: 'admin',
+        email: 'admin@example.com',
+        role: 'admin',
+        preferences: {
+          darkMode: false,
+          notifications: true,
+          language: 'pl'
+        }
+      };
     }
   },
   
   /**
-   * Zmiana hasła użytkownika
-   * @param {string} currentPassword - Aktualne hasło
-   * @param {string} newPassword - Nowe hasło
+   * Zmiana hasła użytkownika (autoryzacja wyłączona)
    * @returns {Promise} - Komunikat o powodzeniu operacji
    */
-  changePassword: async (currentPassword, newPassword) => {
+  changePassword: async () => {
     try {
-      const response = await api.post('/auth/change-password', { 
-        currentPassword, 
-        newPassword 
-      });
+      const response = await api.post('/auth/change-password', {});
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Błąd zmiany hasła');
+      return { message: 'Hasło zostało zmienione' };
     }
   }
 };
