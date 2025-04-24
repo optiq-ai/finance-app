@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button, Alert, CircularProgress, Paper, Grid, Divider } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import api from '../api';
+import api from '../../services/api';
 
 const ApiDiagnosticTool = () => {
   const [loading, setLoading] = useState(false);

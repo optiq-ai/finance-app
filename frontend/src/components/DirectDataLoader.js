@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button, Alert, CircularProgress, Paper, Grid, Divider } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import dictionaryService from '../services/dictionaryService';
-import { fetchDictionariesSuccess } from '../redux/slices/dictionarySlice';
+import dictionaryService from '../../services/dictionaryService';
+import { fetchDictionariesSuccess } from '../../redux/slices/dictionarySlice';
 
 const DirectDataLoader = () => {
   const dispatch = useDispatch();

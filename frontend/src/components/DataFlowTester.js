@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button, Alert, CircularProgress, Paper, Grid, Divider } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import dataLogger from '../utils/DataLogger';
-import purchasesService from '../services/purchasesService';
-import payrollService from '../services/payrollService';
-import salesService from '../services/salesService';
-import dictionaryService from '../services/dictionaryService';
-import { fetchDictionariesSuccess } from '../redux/slices/dictionarySlice';
-import { fetchPurchasesSuccess } from '../redux/slices/purchasesSlice';
-import { fetchPayrollSuccess } from '../redux/slices/payrollSlice';
-import { fetchSalesSuccess } from '../redux/slices/salesSlice';
+import dataLogger from '../../utils/DataLogger';
+import purchasesService from '../../services/purchasesService';
+import payrollService from '../../services/payrollService';
+import salesService from '../../services/salesService';
+import dictionaryService from '../../services/dictionaryService';
+import { fetchDictionariesSuccess } from '../../redux/slices/dictionarySlice';
+import { fetchPurchasesSuccess } from '../../redux/slices/purchasesSlice';
+import { fetchPayrollSuccess } from '../../redux/slices/payrollSlice';
+import { fetchSalesSuccess } from '../../redux/slices/salesSlice';
 
 // Komponent do testowania przepływu danych w aplikacji
 const DataFlowTester = () => {
@@ -505,14 +505,16 @@ const DataFlowTester = () => {
           Logi ({logs.length})
         </Typography>
         <Paper sx={{ p: 2, maxHeight: '400px', overflow: 'auto' }}>
-          {logs.slice(-50).reverse().map((log, index) => (
+          {logs.map((log, index) => (
             <Box key={index} sx={{ mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                {new Date(log.timestamp).toLocaleTimeString()} - [{log.source}] {log.action} ({log.level})
+              <Typography variant="caption" color={log.isError ? 'error.main' : 'text.secondary'}>
+                {new Date(log.timestamp).toLocaleTimeString()} - {log.message}
               </Typography>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                {JSON.stringify(log.data || log.error || {}, null, 2)}
-              </pre>
+              {log.data && (
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {JSON.stringify(log.data, null, 2)}
+                </pre>
+              )}
               <Divider sx={{ my: 1 }} />
             </Box>
           ))}
