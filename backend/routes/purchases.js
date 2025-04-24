@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { Purchase, sequelize } = require('../models');
+const { Purchase, Department, Group, ServiceType, Contractor, CostCategory, sequelize } = require('../models');
 
 /**
  * @route   GET /api/purchases
@@ -50,9 +50,16 @@ router.get('/', async (req, res) => {
     console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
     try {
-      // Pobieranie danych z paginacją
+      // Pobieranie danych z paginacją i relacjami
       const { count, rows } = await Purchase.findAndCountAll({
         where: whereConditions,
+        include: [
+          { model: Department, attributes: ['name'] },
+          { model: Group, attributes: ['name'] },
+          { model: ServiceType, attributes: ['name'] },
+          { model: Contractor, attributes: ['name'] },
+          { model: CostCategory, attributes: ['name'] }
+        ],
         limit: parseInt(pageSize),
         offset: parseInt(page) * parseInt(pageSize),
         order: [['date', 'DESC']]
@@ -60,16 +67,16 @@ router.get('/', async (req, res) => {
 
       console.log(`Znaleziono ${count} rekordów zakupów`);
       
-      // Przygotowanie danych do wyświetlenia w tabeli
+      // Przygotowanie danych do wyświetlenia w tabeli z nazwami zamiast ID
       const formattedRows = rows.map(row => {
         const purchase = row.toJSON();
         return {
           ...purchase,
-          department: purchase.departmentId,
-          group: purchase.groupId,
-          serviceType: purchase.serviceTypeId,
-          contractor: purchase.contractorId,
-          costCategory: purchase.costCategoryId
+          department: purchase.Department ? purchase.Department.name : '-',
+          group: purchase.Group ? purchase.Group.name : '-',
+          serviceType: purchase.ServiceType ? purchase.ServiceType.name : '-',
+          contractor: purchase.Contractor ? purchase.Contractor.name : '-',
+          costCategory: purchase.CostCategory ? purchase.CostCategory.name : '-'
         };
       });
 
@@ -105,13 +112,29 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const purchase = await Purchase.findByPk(req.params.id);
+    const purchase = await Purchase.findByPk(req.params.id, {
+      include: [
+        { model: Department, attributes: ['name'] },
+        { model: Group, attributes: ['name'] },
+        { model: ServiceType, attributes: ['name'] },
+        { model: Contractor, attributes: ['name'] },
+        { model: CostCategory, attributes: ['name'] }
+      ]
+    });
     
     if (!purchase) {
       return res.status(404).json({ message: 'Zakup nie znaleziony' });
     }
     
-    res.json(purchase);
+    // Formatowanie danych z nazwami zamiast ID
+    const formattedPurchase = purchase.toJSON();
+    formattedPurchase.department = formattedPurchase.Department ? formattedPurchase.Department.name : '-';
+    formattedPurchase.group = formattedPurchase.Group ? formattedPurchase.Group.name : '-';
+    formattedPurchase.serviceType = formattedPurchase.ServiceType ? formattedPurchase.ServiceType.name : '-';
+    formattedPurchase.contractor = formattedPurchase.Contractor ? formattedPurchase.Contractor.name : '-';
+    formattedPurchase.costCategory = formattedPurchase.CostCategory ? formattedPurchase.CostCategory.name : '-';
+    
+    res.json(formattedPurchase);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Błąd serwera' });

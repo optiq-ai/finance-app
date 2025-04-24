@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { Payroll, sequelize } = require('../models');
+const { Payroll, Department, Group, sequelize } = require('../models');
 
 /**
  * @route   GET /api/payroll
@@ -46,9 +46,13 @@ router.get('/', async (req, res) => {
     console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
     try {
-      // Pobieranie danych z paginacją
+      // Pobieranie danych z paginacją i relacjami
       const { count, rows } = await Payroll.findAndCountAll({
         where: whereConditions,
+        include: [
+          { model: Department, attributes: ['name'] },
+          { model: Group, attributes: ['name'] }
+        ],
         limit: parseInt(pageSize),
         offset: parseInt(page) * parseInt(pageSize),
         order: [['date', 'DESC']]
@@ -56,13 +60,13 @@ router.get('/', async (req, res) => {
 
       console.log(`Znaleziono ${count} rekordów wypłat`);
 
-      // Przygotowanie danych do wyświetlenia w tabeli
+      // Przygotowanie danych do wyświetlenia w tabeli z nazwami zamiast ID
       const formattedRows = rows.map(row => {
         const payroll = row.toJSON();
         return {
           ...payroll,
-          department: payroll.departmentId,
-          group: payroll.groupId,
+          department: payroll.Department ? payroll.Department.name : '-',
+          group: payroll.Group ? payroll.Group.name : '-',
           employee: payroll.employeeName
         };
       });
@@ -99,13 +103,23 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const payroll = await Payroll.findByPk(req.params.id);
+    const payroll = await Payroll.findByPk(req.params.id, {
+      include: [
+        { model: Department, attributes: ['name'] },
+        { model: Group, attributes: ['name'] }
+      ]
+    });
     
     if (!payroll) {
       return res.status(404).json({ message: 'Wypłata nie znaleziona' });
     }
     
-    res.json(payroll);
+    // Formatowanie danych z nazwami zamiast ID
+    const formattedPayroll = payroll.toJSON();
+    formattedPayroll.department = formattedPayroll.Department ? formattedPayroll.Department.name : '-';
+    formattedPayroll.group = formattedPayroll.Group ? formattedPayroll.Group.name : '-';
+    
+    res.json(formattedPayroll);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Błąd serwera' });

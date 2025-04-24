@@ -9,24 +9,40 @@ const { Department, Group, ServiceType, Contractor, CostCategory } = require('..
  */
 router.get('/', async (req, res) => {
   try {
+    console.log('Pobieranie wszystkich słowników...');
+    
     const [departments, groups, serviceTypes, contractors, costCategories] = await Promise.all([
       Department.findAll({ order: [['name', 'ASC']] }),
-      Group.findAll({ order: [['name', 'ASC']] }),
+      Group.findAll({ 
+        order: [['name', 'ASC']],
+        include: [{ model: Department, attributes: ['name'] }]
+      }),
       ServiceType.findAll({ order: [['name', 'ASC']] }),
       Contractor.findAll({ order: [['name', 'ASC']] }),
       CostCategory.findAll({ order: [['name', 'ASC']] })
     ]);
     
+    // Dodanie informacji o departamencie do grup
+    const formattedGroups = groups.map(group => {
+      const groupData = group.toJSON();
+      return {
+        ...groupData,
+        departmentName: groupData.Department ? groupData.Department.name : null
+      };
+    });
+    
+    console.log(`Pobrano słowniki: ${departments.length} departamentów, ${groups.length} grup, ${serviceTypes.length} rodzajów usług, ${contractors.length} kontrahentów, ${costCategories.length} kategorii kosztów`);
+    
     res.json({
       departments,
-      groups,
+      groups: formattedGroups,
       serviceTypes,
       contractors,
       costCategories
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error('Błąd podczas pobierania słowników:', err);
+    res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 
@@ -38,6 +54,8 @@ router.get('/', async (req, res) => {
 router.get('/:type', async (req, res) => {
   try {
     const { type } = req.params;
+    console.log(`Pobieranie słownika typu: ${type}`);
+    
     let items = [];
     
     switch (type) {
@@ -45,7 +63,19 @@ router.get('/:type', async (req, res) => {
         items = await Department.findAll({ order: [['name', 'ASC']] });
         break;
       case 'groups':
-        items = await Group.findAll({ order: [['name', 'ASC']] });
+        items = await Group.findAll({ 
+          order: [['name', 'ASC']],
+          include: [{ model: Department, attributes: ['name'] }]
+        });
+        
+        // Dodanie informacji o departamencie do grup
+        items = items.map(group => {
+          const groupData = group.toJSON();
+          return {
+            ...groupData,
+            departmentName: groupData.Department ? groupData.Department.name : null
+          };
+        });
         break;
       case 'serviceTypes':
         items = await ServiceType.findAll({ order: [['name', 'ASC']] });
@@ -60,10 +90,11 @@ router.get('/:type', async (req, res) => {
         return res.status(400).json({ message: 'Nieprawidłowy typ słownika' });
     }
     
+    console.log(`Pobrano ${items.length} elementów słownika ${type}`);
     res.json(items);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error(`Błąd podczas pobierania słownika ${req.params.type}:`, err);
+    res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 
@@ -75,6 +106,8 @@ router.get('/:type', async (req, res) => {
 router.post('/:type', async (req, res) => {
   try {
     const { type } = req.params;
+    console.log(`Dodawanie nowego elementu do słownika ${type}:`, req.body);
+    
     let newItem;
     
     switch (type) {
@@ -83,6 +116,21 @@ router.post('/:type', async (req, res) => {
         break;
       case 'groups':
         newItem = await Group.create(req.body);
+        // Pobierz pełne dane z relacją
+        if (newItem) {
+          newItem = await Group.findByPk(newItem.id, {
+            include: [{ model: Department, attributes: ['name'] }]
+          });
+          
+          // Dodaj departmentName
+          if (newItem) {
+            const groupData = newItem.toJSON();
+            newItem = {
+              ...groupData,
+              departmentName: groupData.Department ? groupData.Department.name : null
+            };
+          }
+        }
         break;
       case 'serviceTypes':
         newItem = await ServiceType.create(req.body);
@@ -97,10 +145,11 @@ router.post('/:type', async (req, res) => {
         return res.status(400).json({ message: 'Nieprawidłowy typ słownika' });
     }
     
+    console.log(`Dodano nowy element do słownika ${type}:`, newItem);
     res.status(201).json(newItem);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error(`Błąd podczas dodawania elementu do słownika ${req.params.type}:`, err);
+    res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 
@@ -112,6 +161,8 @@ router.post('/:type', async (req, res) => {
 router.put('/:type/:id', async (req, res) => {
   try {
     const { type, id } = req.params;
+    console.log(`Aktualizacja elementu słownika ${type} o ID ${id}:`, req.body);
+    
     let item;
     
     switch (type) {
@@ -139,10 +190,28 @@ router.put('/:type/:id', async (req, res) => {
     }
     
     await item.update(req.body);
+    
+    // Dla grup, pobierz pełne dane z relacją
+    if (type === 'groups') {
+      item = await Group.findByPk(id, {
+        include: [{ model: Department, attributes: ['name'] }]
+      });
+      
+      // Dodaj departmentName
+      if (item) {
+        const groupData = item.toJSON();
+        item = {
+          ...groupData,
+          departmentName: groupData.Department ? groupData.Department.name : null
+        };
+      }
+    }
+    
+    console.log(`Zaktualizowano element słownika ${type}:`, item);
     res.json(item);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error(`Błąd podczas aktualizacji elementu słownika ${req.params.type}:`, err);
+    res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 
@@ -154,6 +223,8 @@ router.put('/:type/:id', async (req, res) => {
 router.delete('/:type/:id', async (req, res) => {
   try {
     const { type, id } = req.params;
+    console.log(`Usuwanie elementu słownika ${type} o ID ${id}`);
+    
     let item;
     
     switch (type) {
@@ -181,10 +252,11 @@ router.delete('/:type/:id', async (req, res) => {
     }
     
     await item.destroy();
+    console.log(`Usunięto element słownika ${type} o ID ${id}`);
     res.json({ message: 'Element usunięty' });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error(`Błąd podczas usuwania elementu słownika ${req.params.type}:`, err);
+    res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 

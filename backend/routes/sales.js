@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { Sale, sequelize } = require('../models');
+const { Sale, Department, Group, ServiceType, sequelize } = require('../models');
 
 /**
  * @route   GET /api/sales
@@ -48,9 +48,14 @@ router.get('/', async (req, res) => {
     console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
     try {
-      // Pobieranie danych z paginacją
+      // Pobieranie danych z paginacją i relacjami
       const { count, rows } = await Sale.findAndCountAll({
         where: whereConditions,
+        include: [
+          { model: Department, attributes: ['name'] },
+          { model: Group, attributes: ['name'] },
+          { model: ServiceType, attributes: ['name'] }
+        ],
         limit: parseInt(pageSize),
         offset: parseInt(page) * parseInt(pageSize),
         order: [['date', 'DESC']]
@@ -58,14 +63,14 @@ router.get('/', async (req, res) => {
 
       console.log(`Znaleziono ${count} rekordów sprzedaży`);
 
-      // Przygotowanie danych do wyświetlenia w tabeli
+      // Przygotowanie danych do wyświetlenia w tabeli z nazwami zamiast ID
       const formattedRows = rows.map(row => {
         const sale = row.toJSON();
         return {
           ...sale,
-          department: sale.departmentId,
-          group: sale.groupId,
-          serviceType: sale.serviceTypeId
+          department: sale.Department ? sale.Department.name : '-',
+          group: sale.Group ? sale.Group.name : '-',
+          serviceType: sale.ServiceType ? sale.ServiceType.name : '-'
         };
       });
 
@@ -101,13 +106,25 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const sale = await Sale.findByPk(req.params.id);
+    const sale = await Sale.findByPk(req.params.id, {
+      include: [
+        { model: Department, attributes: ['name'] },
+        { model: Group, attributes: ['name'] },
+        { model: ServiceType, attributes: ['name'] }
+      ]
+    });
     
     if (!sale) {
       return res.status(404).json({ message: 'Sprzedaż nie znaleziona' });
     }
     
-    res.json(sale);
+    // Formatowanie danych z nazwami zamiast ID
+    const formattedSale = sale.toJSON();
+    formattedSale.department = formattedSale.Department ? formattedSale.Department.name : '-';
+    formattedSale.group = formattedSale.Group ? formattedSale.Group.name : '-';
+    formattedSale.serviceType = formattedSale.ServiceType ? formattedSale.ServiceType.name : '-';
+    
+    res.json(formattedSale);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Błąd serwera' });

@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const xlsx = require('xlsx');
-const { ImportedFile, Purchase, Payroll, Sale, sequelize } = require('../models');
+const { ImportedFile, Purchase, Payroll, Sale, Department, Group, ServiceType, Contractor, CostCategory, sequelize } = require('../models');
 
 // Sprawdzenie i utworzenie katalogu uploads
 const ensureUploadDirExists = () => {
@@ -139,8 +139,10 @@ const parseFile = (filePath) => {
       });
       
       console.log(`Odczytano ${data.length} wierszy z pliku Excel`);
-      console.log('Przykładowy wiersz:', JSON.stringify(data[0]));
-      console.log('Kolumny w pliku:', Object.keys(data[0]).join(', '));
+      if (data.length > 0) {
+        console.log('Przykładowy wiersz:', JSON.stringify(data[0]));
+        console.log('Kolumny w pliku:', Object.keys(data[0]).join(', '));
+      }
       return data;
     }
   } catch (err) {
@@ -193,9 +195,115 @@ const safeToFloat = (value) => {
   return parsed;
 };
 
+// Funkcje do wyszukiwania identyfikatorów na podstawie nazw
+const findDepartmentId = async (name) => {
+  if (!name) return null;
+  
+  try {
+    const department = await Department.findOne({
+      where: { name: name.trim() }
+    });
+    
+    if (department) {
+      console.log(`Znaleziono departament: ${name} => ID: ${department.id}`);
+      return department.id;
+    } else {
+      console.log(`Nie znaleziono departamentu o nazwie: ${name}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`Błąd podczas wyszukiwania departamentu ${name}:`, err);
+    return null;
+  }
+};
+
+const findGroupId = async (name) => {
+  if (!name) return null;
+  
+  try {
+    const group = await Group.findOne({
+      where: { name: name.trim() }
+    });
+    
+    if (group) {
+      console.log(`Znaleziono grupę: ${name} => ID: ${group.id}`);
+      return group.id;
+    } else {
+      console.log(`Nie znaleziono grupy o nazwie: ${name}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`Błąd podczas wyszukiwania grupy ${name}:`, err);
+    return null;
+  }
+};
+
+const findServiceTypeId = async (name) => {
+  if (!name) return null;
+  
+  try {
+    const serviceType = await ServiceType.findOne({
+      where: { name: name.trim() }
+    });
+    
+    if (serviceType) {
+      console.log(`Znaleziono rodzaj usługi: ${name} => ID: ${serviceType.id}`);
+      return serviceType.id;
+    } else {
+      console.log(`Nie znaleziono rodzaju usługi o nazwie: ${name}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`Błąd podczas wyszukiwania rodzaju usługi ${name}:`, err);
+    return null;
+  }
+};
+
+const findContractorId = async (name) => {
+  if (!name) return null;
+  
+  try {
+    const contractor = await Contractor.findOne({
+      where: { name: name.trim() }
+    });
+    
+    if (contractor) {
+      console.log(`Znaleziono kontrahenta: ${name} => ID: ${contractor.id}`);
+      return contractor.id;
+    } else {
+      console.log(`Nie znaleziono kontrahenta o nazwie: ${name}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`Błąd podczas wyszukiwania kontrahenta ${name}:`, err);
+    return null;
+  }
+};
+
+const findCostCategoryId = async (name) => {
+  if (!name) return null;
+  
+  try {
+    const costCategory = await CostCategory.findOne({
+      where: { name: name.trim() }
+    });
+    
+    if (costCategory) {
+      console.log(`Znaleziono kategorię kosztów: ${name} => ID: ${costCategory.id}`);
+      return costCategory.id;
+    } else {
+      console.log(`Nie znaleziono kategorii kosztów o nazwie: ${name}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`Błąd podczas wyszukiwania kategorii kosztów ${name}:`, err);
+    return null;
+  }
+};
+
 // Funkcje mapujące nazwy kolumn z plików Excel na pola w bazie danych
 // Zaktualizowane na podstawie analizy rzeczywistych plików i z konwersją typów
-const mapPurchaseFields = (row) => {
+const mapPurchaseFields = async (row) => {
   console.log('Mapowanie pól zakupu:', JSON.stringify(row));
   
   // Pobierz wartości z pliku Excel
@@ -206,14 +314,12 @@ const mapPurchaseFields = (row) => {
   const vatAmount = safeToFloat(row['VAT']);
   const grossAmount = safeToFloat(row['Brutto']);
   
-  // Konwersja identyfikatorów na liczby całkowite (lub null jeśli konwersja się nie powiedzie)
-  // W bazie danych te pola są typu INTEGER
-  const departmentId = safeToInteger(row['Oddział'] ? String(row['Oddział']).trim() : null);
-  const groupId = safeToInteger(row['Kolumna2'] ? String(row['Kolumna2']).trim() : null);
-  const serviceTypeId = safeToInteger(row['Kolumna3'] ? String(row['Kolumna3']).trim() : null);
-  const contractorId = safeToInteger(row['Kontrahent'] ? String(row['Kontrahent']).trim() : 
-                      row['Płatnik'] ? String(row['Płatnik']).trim() : null);
-  const costCategoryId = safeToInteger(row['Kategoria'] ? String(row['Kategoria']).trim() : null);
+  // Wyszukiwanie identyfikatorów na podstawie nazw
+  const departmentId = await findDepartmentId(row['Oddział']);
+  const groupId = await findGroupId(row['Kolumna2'] || row['Grupa']);
+  const serviceTypeId = await findServiceTypeId(row['Kolumna3'] || row['Rodzaj usługi']);
+  const contractorId = await findContractorId(row['Kontrahent'] || row['Płatnik']);
+  const costCategoryId = await findCostCategoryId(row['Kategoria']);
   
   const result = {
     date,
@@ -233,7 +339,7 @@ const mapPurchaseFields = (row) => {
   return result;
 };
 
-const mapPayrollFields = (row) => {
+const mapPayrollFields = async (row) => {
   console.log('Mapowanie pól wypłaty:', JSON.stringify(row));
   
   // Pobierz wartości z pliku Excel
@@ -244,9 +350,9 @@ const mapPayrollFields = (row) => {
   const taxAmount = safeToFloat(row['Zaliczka_podatku']);
   const netAmount = safeToFloat(row['Netto']);
   
-  // Konwersja identyfikatorów na liczby całkowite (lub null jeśli konwersja się nie powiedzie)
-  const departmentId = safeToInteger(row['Oddział'] ? String(row['Oddział']).trim() : null);
-  const groupId = safeToInteger(row['Grupa'] ? String(row['Grupa']).trim() : null);
+  // Wyszukiwanie identyfikatorów na podstawie nazw
+  const departmentId = await findDepartmentId(row['Oddział']);
+  const groupId = await findGroupId(row['Grupa']);
   
   const result = {
     date,
@@ -263,7 +369,7 @@ const mapPayrollFields = (row) => {
   return result;
 };
 
-const mapSaleFields = (row) => {
+const mapSaleFields = async (row) => {
   console.log('Mapowanie pól sprzedaży:', JSON.stringify(row));
   
   // Pobierz wartości z pliku Excel
@@ -278,10 +384,10 @@ const mapSaleFields = (row) => {
   const quantity = safeToInteger(row['Ilość']) || 1;
   const averageValue = safeToFloat(row['ŚREDNIA']);
   
-  // Konwersja identyfikatorów na liczby całkowite (lub null jeśli konwersja się nie powiedzie)
-  const departmentId = safeToInteger(row['Oddział'] ? String(row['Oddział']).trim() : null);
-  const groupId = safeToInteger(row['Grupa'] ? String(row['Grupa']).trim() : null);
-  const serviceTypeId = safeToInteger(row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null);
+  // Wyszukiwanie identyfikatorów na podstawie nazw
+  const departmentId = await findDepartmentId(row['Oddział']);
+  const groupId = await findGroupId(row['Grupa']);
+  const serviceTypeId = await findServiceTypeId(row['Rodzaj usługi']);
   
   const customer = row['Kontrahent'] ? String(row['Kontrahent']).trim() : '';
   
@@ -393,7 +499,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         
         for (const row of batch) {
           try {
-            const mappedData = mapPurchaseFields(row);
+            const mappedData = await mapPurchaseFields(row);
             console.log('Zmapowane dane zakupu:', JSON.stringify(mappedData));
             
             const purchaseData = {
@@ -433,7 +539,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         
         for (const row of batch) {
           try {
-            const mappedData = mapPayrollFields(row);
+            const mappedData = await mapPayrollFields(row);
             console.log('Zmapowane dane wypłaty:', JSON.stringify(mappedData));
             
             const payrollData = {
@@ -473,7 +579,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         
         for (const row of batch) {
           try {
-            const mappedData = mapSaleFields(row);
+            const mappedData = await mapSaleFields(row);
             console.log('Zmapowane dane sprzedaży:', JSON.stringify(mappedData));
             
             const saleData = {
@@ -507,10 +613,10 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         }
       }
     }
-
-    // Finalna aktualizacja statusu pliku - BEZ TRANSAKCJI
+    
+    // Finalna aktualizacja statusu pliku
+    console.log('Finalna aktualizacja statusu pliku, przetworzono wierszy:', processedRows);
     try {
-      console.log('Finalna aktualizacja statusu pliku, przetworzono wierszy:', processedRows);
       await ImportedFile.update(
         {
           status: 'completed',
@@ -518,32 +624,29 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         },
         { where: { id: importedFile.id } }
       );
-
-      console.log('Przetwarzanie pliku zakończone pomyślnie');
-      res.status(201).json({
-        message: 'Plik został pomyślnie przesłany i przetworzony',
-        importedFile: {
-          id: importedFile.id,
-          fileName: req.file.originalname,
-          filePath: req.file.path,
-          fileSize: req.file.size,
-          type: type,
-          status: 'completed',
-          processedRows: processedRows,
-          errorRows: errorRows
-        },
-        processedRows: processedRows
-      });
     } catch (updateErr) {
       console.error('Błąd podczas finalnej aktualizacji statusu pliku:', updateErr);
-      res.status(500).json({ message: 'Plik został przetworzony, ale wystąpił błąd podczas aktualizacji statusu', processedRows: processedRows, errorRows: errorRows });
+      // Kontynuujemy mimo błędu aktualizacji
     }
+    
+    console.log('Przetwarzanie pliku zakończone pomyślnie');
+    
+    res.status(201).json({
+      message: 'Plik został pomyślnie przesłany i przetworzony',
+      importedFile: {
+        id: importedFile.id,
+        fileName: req.file.originalname,
+        filePath: req.file.path,
+        fileSize: req.file.size,
+        type: type,
+        status: 'completed',
+        processedRows: processedRows,
+        errorRows: errorRows
+      }
+    });
   } catch (err) {
     console.error('Upload error:', err);
-    console.error('Szczegóły błędu:', JSON.stringify(err, null, 2));
     
-    // Jeśli plik został już utworzony w bazie, ale wystąpił błąd podczas przetwarzania,
-    // aktualizujemy jego status na 'error'
     if (importedFile) {
       try {
         await ImportedFile.update(
@@ -555,7 +658,6 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
         );
       } catch (updateErr) {
         console.error('Błąd podczas aktualizacji statusu pliku na error:', updateErr);
-        // Ignorujemy błąd aktualizacji statusu, aby zwrócić oryginalny błąd
       }
     }
     
@@ -571,222 +673,68 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
 router.get('/history', async (req, res) => {
   try {
     console.log('Pobieranie historii przesłanych plików...');
-    
-    // Tryb testowy z danymi mock
-    if (MOCK_MODE) {
-      console.log('Używanie trybu testowego z danymi mock dla historii');
-      const mockHistory = [
-        {
-          id: 1,
-          fileName: 'zakupy_testowe.xlsx',
-          fileSize: 1024,
-          type: 'purchases',
-          status: 'completed',
-          processedRows: 10,
-          createdAt: new Date(),
-          date: new Date()
-        },
-        {
-          id: 2,
-          fileName: 'wyplaty_testowe.xlsx',
-          fileSize: 2048,
-          type: 'payroll',
-          status: 'completed',
-          processedRows: 5,
-          createdAt: new Date(Date.now() - 86400000), // wczoraj
-          date: new Date(Date.now() - 86400000)
-        }
-      ];
-      return res.json(mockHistory);
-    }
-    
-    // Pobieranie rzeczywistych danych z bazy
-    const importedFiles = await ImportedFile.findAll({
+    const files = await ImportedFile.findAll({
       order: [['importDate', 'DESC']]
     });
     
-    console.log(`Znaleziono ${importedFiles.length} plików w historii`);
+    console.log(`Znaleziono ${files.length} plików w historii`);
     
-    // Mapowanie danych do odpowiedniego formatu
-    const history = importedFiles.map(file => ({
+    const formattedFiles = files.map(file => ({
       id: file.id,
       fileName: file.originalFilename,
-      fileSize: 0, // Brak informacji o rozmiarze w modelu, można dodać później
-      type: file.fileType === 'purchase' ? 'purchases' : 
-            file.fileType === 'payroll' ? 'payroll' : 'sales',
+      fileSize: file.fileSize,
+      type: file.fileType === 'purchase' ? 'purchases' : file.fileType === 'payroll' ? 'payroll' : 'sales',
       status: file.status,
       processedRows: file.rowsCount,
-      createdAt: file.importDate,
-      date: file.importDate // Dodane dla kompatybilności z formatowaniem dat
+      importDate: file.importDate,
+      errorMessage: file.errorMessage
     }));
     
-    console.log('Historia plików:', JSON.stringify(history));
-    res.json(history);
+    console.log('Historia plików:', JSON.stringify(formattedFiles.slice(0, 2)));
+    
+    res.json(formattedFiles);
   } catch (err) {
-    console.error('Upload history error:', err);
-    res.status(500).json({ message: 'Błąd serwera', error: err.message });
-  }
-});
-
-/**
- * @route   GET /api/upload/:id
- * @desc    Pobieranie szczegółów przesłanego pliku
- * @access  Private
- */
-router.get('/:id', async (req, res) => {
-  try {
-    const fileId = req.params.id;
-    console.log(`Pobieranie szczegółów pliku o ID: ${fileId}`);
-    
-    // Tryb testowy z danymi mock
-    if (MOCK_MODE) {
-      console.log('Używanie trybu testowego z danymi mock dla szczegółów pliku');
-      const mockDetails = {
-        id: fileId,
-        fileName: 'zakupy_testowe.xlsx',
-        filePath: '/mock/path',
-        fileSize: 1024,
-        type: 'purchases',
-        status: 'completed',
-        processedRows: 10,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        sampleData: [
-          { date: new Date(), documentNumber: 'DOC-001', netAmount: 100, vatAmount: 23, grossAmount: 123 },
-          { date: new Date(), documentNumber: 'DOC-002', netAmount: 200, vatAmount: 46, grossAmount: 246 }
-        ]
-      };
-      return res.json(mockDetails);
-    }
-    
-    // Pobieranie informacji o pliku
-    const importedFile = await ImportedFile.findByPk(fileId);
-    
-    if (!importedFile) {
-      console.log(`Nie znaleziono pliku o ID: ${fileId}`);
-      return res.status(404).json({ message: 'Nie znaleziono pliku o podanym ID' });
-    }
-    
-    console.log(`Znaleziono plik: ${importedFile.originalFilename}, typ: ${importedFile.fileType}`);
-    
-    // Pobieranie przykładowych danych powiązanych z plikiem
-    let importedData = [];
-    try {
-      if (importedFile.fileType === 'purchase') {
-        importedData = await Purchase.findAll({ 
-          where: { importedFileId: fileId },
-          limit: 5,
-          order: [['id', 'DESC']]
-        });
-      } else if (importedFile.fileType === 'payroll') {
-        importedData = await Payroll.findAll({ 
-          where: { importedFileId: fileId },
-          limit: 5,
-          order: [['id', 'DESC']]
-        });
-      } else if (importedFile.fileType === 'sale') {
-        importedData = await Sale.findAll({ 
-          where: { importedFileId: fileId },
-          limit: 5,
-          order: [['id', 'DESC']]
-        });
-      }
-      
-      console.log(`Pobrano ${importedData.length} przykładowych rekordów`);
-    } catch (err) {
-      console.error('Błąd podczas pobierania danych powiązanych z plikiem:', err);
-      // Kontynuujemy mimo błędu
-    }
-    
-    res.json({
-      id: importedFile.id,
-      fileName: importedFile.originalFilename,
-      filePath: importedFile.filename,
-      fileSize: 0, // Brak informacji o rozmiarze w modelu
-      type: importedFile.fileType === 'purchase' ? 'purchases' : 
-            importedFile.fileType === 'payroll' ? 'payroll' : 'sales',
-      status: importedFile.status,
-      processedRows: importedFile.rowsCount,
-      createdAt: importedFile.importDate,
-      updatedAt: importedFile.updatedAt,
-      sampleData: importedData
-    });
-  } catch (err) {
-    console.error('Upload details error:', err);
+    console.error('Błąd podczas pobierania historii plików:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 
 /**
  * @route   DELETE /api/upload/:id
- * @desc    Usuwanie przesłanego pliku i powiązanych danych
+ * @desc    Usuwanie przesłanego pliku
  * @access  Private
  */
 router.delete('/:id', async (req, res) => {
   try {
-    const fileId = req.params.id;
-    console.log(`Usuwanie pliku o ID: ${fileId}`);
+    const { id } = req.params;
     
-    // Tryb testowy z danymi mock
-    if (MOCK_MODE) {
-      console.log('Używanie trybu testowego z danymi mock dla usuwania pliku');
-      return res.json({ message: 'Plik i powiązane dane zostały usunięte (tryb testowy)' });
-    }
-    
-    // Pobieranie informacji o pliku
-    const importedFile = await ImportedFile.findByPk(fileId);
+    const importedFile = await ImportedFile.findByPk(id);
     
     if (!importedFile) {
-      console.log(`Nie znaleziono pliku o ID: ${fileId}`);
-      return res.status(404).json({ message: 'Nie znaleziono pliku o podanym ID' });
+      return res.status(404).json({ message: 'Plik nie znaleziony' });
     }
     
-    console.log(`Znaleziono plik: ${importedFile.originalFilename}, typ: ${importedFile.fileType}`);
-    
-    // Usuwanie powiązanych danych w zależności od typu pliku - BEZ TRANSAKCJI
-    try {
-      if (importedFile.fileType === 'purchase') {
-        const deleted = await Purchase.destroy({ 
-          where: { importedFileId: fileId }
-        });
-        console.log(`Usunięto ${deleted} rekordów zakupów`);
-      } else if (importedFile.fileType === 'payroll') {
-        const deleted = await Payroll.destroy({ 
-          where: { importedFileId: fileId }
-        });
-        console.log(`Usunięto ${deleted} rekordów wypłat`);
-      } else if (importedFile.fileType === 'sale') {
-        const deleted = await Sale.destroy({ 
-          where: { importedFileId: fileId }
-        });
-        console.log(`Usunięto ${deleted} rekordów sprzedaży`);
-      }
-    } catch (err) {
-      console.error('Błąd podczas usuwania powiązanych danych:', err);
-      return res.status(500).json({ message: `Błąd podczas usuwania powiązanych danych: ${err.message}` });
+    // Usuwanie powiązanych danych
+    if (importedFile.fileType === 'purchase') {
+      await Purchase.destroy({ where: { importedFileId: id } });
+    } else if (importedFile.fileType === 'payroll') {
+      await Payroll.destroy({ where: { importedFileId: id } });
+    } else if (importedFile.fileType === 'sale') {
+      await Sale.destroy({ where: { importedFileId: id } });
     }
     
-    // Usuwanie fizycznego pliku z serwera
-    try {
-      const filePath = path.join(__dirname, '../uploads', importedFile.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`Usunięto plik fizyczny: ${filePath}`);
-      } else {
-        console.log(`Plik fizyczny nie istnieje: ${filePath}`);
-      }
-    } catch (err) {
-      console.error('Błąd podczas usuwania pliku fizycznego:', err);
-      // Kontynuujemy mimo błędu usuwania pliku fizycznego
+    // Usuwanie pliku fizycznego
+    const filePath = path.join(__dirname, '../uploads', importedFile.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
     }
     
     // Usuwanie rekordu z bazy danych
     await importedFile.destroy();
-    console.log(`Usunięto rekord ImportedFile o ID: ${fileId}`);
     
-    res.json({ message: 'Plik i powiązane dane zostały usunięte' });
+    res.json({ message: 'Plik został pomyślnie usunięty' });
   } catch (err) {
-    console.error('Upload delete error:', err);
+    console.error('Błąd podczas usuwania pliku:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
