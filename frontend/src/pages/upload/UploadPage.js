@@ -143,6 +143,11 @@ const UploadPage = () => {
       await uploadService.deleteUpload(id);
       dispatch(deleteFileSuccess(id));
       
+      // Resetowanie stanu po usunięciu pliku
+      setSelectedFile(null);
+      setFileType('');
+      dispatch(resetUploadStatus());
+      
       // Odświeżenie historii importów po usunięciu pliku
       fetchUploadHistory();
     } catch (err) {
