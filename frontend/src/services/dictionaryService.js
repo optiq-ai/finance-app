@@ -7,9 +7,12 @@ const dictionaryService = {
    */
   getDictionaries: async () => {
     try {
+      console.log('Wywołanie API: /dictionary');
       const response = await api.get('/dictionary');
+      console.log('Odpowiedź API słowników:', response.data);
       return response.data;
     } catch (error) {
+      console.error('Błąd pobierania słowników:', error);
       throw new Error(error.response?.data?.message || 'Błąd pobierania słowników');
     }
   },
@@ -21,9 +24,12 @@ const dictionaryService = {
    */
   getDictionaryItems: async (type) => {
     try {
+      console.log(`Wywołanie API: /dictionary/${type}`);
       const response = await api.get(`/dictionary/${type}`);
+      console.log(`Odpowiedź API słownika ${type}:`, response.data);
       return response.data;
     } catch (error) {
+      console.error(`Błąd pobierania słownika ${type}:`, error);
       throw new Error(error.response?.data?.message || `Błąd pobierania słownika ${type}`);
     }
   },

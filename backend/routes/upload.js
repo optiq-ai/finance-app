@@ -139,6 +139,7 @@ const parseFile = (filePath) => {
       });
       
       console.log(`Odczytano ${data.length} wierszy z pliku Excel`);
+      console.log('Przykładowy wiersz:', JSON.stringify(data[0]));
       return data;
     }
   } catch (err) {
@@ -167,13 +168,14 @@ const mapPurchaseFields = (row) => {
 
 const mapPayrollFields = (row) => {
   console.log('Mapowanie pól wypłaty:', JSON.stringify(row));
+  // Obsługa różnych możliwych nazw kolumn
   return {
-    date: row['Data'] || new Date(),
-    employeeName: `${row['Nazwisko'] || ''} ${row['Imie'] || ''}`.trim() || 'Nieznany',
-    position: row['Tytul_ubezpieczenia'] ? String(row['Tytul_ubezpieczenia']) : '',
-    grossAmount: parseFloat(row['Brutto'] || 0),
-    taxAmount: parseFloat(row['Zaliczka_podatku'] || 0),
-    netAmount: parseFloat(row['Netto'] || 0),
+    date: row['Data'] || row['Data wypłaty'] || new Date(),
+    employeeName: `${row['Nazwisko'] || ''} ${row['Imie'] || row['Imię'] || ''}`.trim() || 'Nieznany',
+    position: row['Tytul_ubezpieczenia'] || row['Tytuł ubezpieczenia'] || row['Stanowisko'] || '',
+    grossAmount: parseFloat(row['Brutto'] || row['Kwota brutto'] || 0),
+    taxAmount: parseFloat(row['Zaliczka_podatku'] || row['Zaliczka podatku'] || row['Podatek'] || 0),
+    netAmount: parseFloat(row['Netto'] || row['Kwota netto'] || 0),
     departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
     groupId: row['Grupa'] ? String(row['Grupa']).trim() : null
   };
@@ -181,19 +183,20 @@ const mapPayrollFields = (row) => {
 
 const mapSaleFields = (row) => {
   console.log('Mapowanie pól sprzedaży:', JSON.stringify(row));
+  // Obsługa różnych możliwych nazw kolumn
   return {
-    date: row['Data usługi'] || row['Data wyst.'] || new Date(),
-    documentNumber: row['Numer dokumentu'] || `SALE-${Date.now()}`,
-    description: row['Rodzaj usługi'] || '',
-    netAmount: parseFloat(row['Netto'] || 0),
-    vatAmount: 0, // Brak informacji o VAT w pliku sprzedaży
-    grossAmount: parseFloat(row['Netto'] || 0), // Brak informacji o kwocie brutto, używamy netto
+    date: row['Data usługi'] || row['Data wyst.'] || row['Data'] || row['Data sprzedaży'] || new Date(),
+    documentNumber: row['Numer dokumentu'] || row['Nr dokumentu'] || `SALE-${Date.now()}`,
+    description: row['Rodzaj usługi'] || row['Opis'] || '',
+    netAmount: parseFloat(row['Netto'] || row['Kwota netto'] || 0),
+    vatAmount: parseFloat(row['VAT'] || row['Kwota VAT'] || 0),
+    grossAmount: parseFloat(row['Brutto'] || row['Kwota brutto'] || row['Netto'] || 0),
     departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
     groupId: row['Grupa'] ? String(row['Grupa']).trim() : null,
     serviceTypeId: row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null,
-    customer: row['Kontrahent'] ? String(row['Kontrahent']).trim() : '',
-    quantity: parseInt(row['Ilość'] || 1),
-    averageValue: parseFloat(row['ŚREDNIA'] || 0)
+    customer: row['Kontrahent'] || row['Klient'] || row['Nabywca'] ? String(row['Kontrahent'] || row['Klient'] || row['Nabywca']).trim() : '',
+    quantity: parseInt(row['Ilość'] || row['Ilość'] || 1),
+    averageValue: parseFloat(row['ŚREDNIA'] || row['Średnia'] || 0)
   };
 };
 
@@ -460,14 +463,14 @@ router.get('/:id', async (req, res) => {
         createdAt: new Date(),
         updatedAt: new Date(),
         sampleData: [
-          { date: new Date(), documentNumber: 'DOC-001', description: 'Testowy zakup 1', netAmount: 100, vatAmount: 23, grossAmount: 123 },
-          { date: new Date(), documentNumber: 'DOC-002', description: 'Testowy zakup 2', netAmount: 200, vatAmount: 46, grossAmount: 246 }
+          { date: new Date(), documentNumber: 'DOC-001', netAmount: 100, vatAmount: 23, grossAmount: 123 },
+          { date: new Date(), documentNumber: 'DOC-002', netAmount: 200, vatAmount: 46, grossAmount: 246 }
         ]
       };
       return res.json(mockDetails);
     }
     
-    // Pobieranie rzeczywistych danych z bazy
+    // Pobieranie informacji o pliku
     const importedFile = await ImportedFile.findByPk(fileId);
     
     if (!importedFile) {
@@ -477,26 +480,30 @@ router.get('/:id', async (req, res) => {
     
     console.log(`Znaleziono plik: ${importedFile.originalFilename}, typ: ${importedFile.fileType}`);
     
-    // Pobieranie danych powiązanych z plikiem
+    // Pobieranie przykładowych danych powiązanych z plikiem
     let importedData = [];
     try {
       if (importedFile.fileType === 'purchase') {
-        importedData = await Purchase.findAll({
+        importedData = await Purchase.findAll({ 
           where: { importedFileId: fileId },
-          limit: 100 // Ograniczenie dla wydajności
+          limit: 5,
+          order: [['id', 'DESC']]
         });
       } else if (importedFile.fileType === 'payroll') {
-        importedData = await Payroll.findAll({
+        importedData = await Payroll.findAll({ 
           where: { importedFileId: fileId },
-          limit: 100 // Ograniczenie dla wydajności
+          limit: 5,
+          order: [['id', 'DESC']]
         });
       } else if (importedFile.fileType === 'sale') {
-        importedData = await Sale.findAll({
+        importedData = await Sale.findAll({ 
           where: { importedFileId: fileId },
-          limit: 100 // Ograniczenie dla wydajności
+          limit: 5,
+          order: [['id', 'DESC']]
         });
       }
-      console.log(`Pobrano ${importedData.length} rekordów powiązanych z plikiem`);
+      
+      console.log(`Pobrano ${importedData.length} przykładowych rekordów`);
     } catch (err) {
       console.error('Błąd podczas pobierania danych powiązanych z plikiem:', err);
       // Kontynuujemy mimo błędu

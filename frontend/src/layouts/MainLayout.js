@@ -1,6 +1,6 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Outlet } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -32,6 +32,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../redux/slices/authSlice';
+import { fetchDictionariesStart, fetchDictionariesSuccess, fetchDictionariesFailure } from '../redux/slices/dictionarySlice';
+import dictionaryService from '../services/dictionaryService';
 
 const drawerWidth = 240;
 
@@ -41,6 +43,24 @@ const MainLayout = () => {
   const { user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // Pobieranie słowników przy pierwszym renderowaniu
+  useEffect(() => {
+    const fetchDictionaries = async () => {
+      try {
+        console.log('Pobieranie słowników...');
+        dispatch(fetchDictionariesStart());
+        const dictionaries = await dictionaryService.getDictionaries();
+        console.log('Pobrane słowniki:', dictionaries);
+        dispatch(fetchDictionariesSuccess(dictionaries));
+      } catch (error) {
+        console.error('Błąd podczas pobierania słowników:', error);
+        dispatch(fetchDictionariesFailure(error.message));
+      }
+    };
+
+    fetchDictionaries();
+  }, [dispatch]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
