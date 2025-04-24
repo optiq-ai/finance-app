@@ -30,7 +30,7 @@ import purchasesService from '../../services/purchasesService';
 const PurchasesPage = () => {
   const dispatch = useDispatch();
   const { purchases, filteredPurchases, loading, error, filters, pagination } = useSelector((state) => state.purchases);
-  const { departments, groups, serviceTypes, contractors, costCategories } = useSelector((state) => state.dictionary);
+  const { departments = [], groups = [], serviceTypes = [], contractors = [], costCategories = [] } = useSelector((state) => state.dictionary || {});
   
   useEffect(() => {
     const fetchPurchases = async () => {
@@ -59,7 +59,7 @@ const PurchasesPage = () => {
     dispatch(updatePagination({ pageSize: parseInt(event.target.value, 10), page: 0 }));
   };
 
-  if (loading && purchases.length === 0) {
+  if (loading && (!purchases || purchases.length === 0)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -95,7 +95,7 @@ const PurchasesPage = () => {
               label="Data od"
               type="date"
               name="dateFrom"
-              value={filters.dateFrom || ''}
+              value={filters?.dateFrom || ''}
               onChange={handleFilterChange}
               InputLabelProps={{ shrink: true }}
             />
@@ -106,7 +106,7 @@ const PurchasesPage = () => {
               label="Data do"
               type="date"
               name="dateTo"
-              value={filters.dateTo || ''}
+              value={filters?.dateTo || ''}
               onChange={handleFilterChange}
               InputLabelProps={{ shrink: true }}
             />
@@ -117,11 +117,11 @@ const PurchasesPage = () => {
               select
               label="Oddział"
               name="department"
-              value={filters.department || ''}
+              value={filters?.department || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {departments.map((dept) => (
+              {Array.isArray(departments) && departments.map((dept) => (
                 <MenuItem key={dept.id} value={dept.id}>
                   {dept.name}
                 </MenuItem>
@@ -134,11 +134,11 @@ const PurchasesPage = () => {
               select
               label="Grupa"
               name="group"
-              value={filters.group || ''}
+              value={filters?.group || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {groups.map((group) => (
+              {Array.isArray(groups) && groups.map((group) => (
                 <MenuItem key={group.id} value={group.id}>
                   {group.name}
                 </MenuItem>
@@ -151,11 +151,11 @@ const PurchasesPage = () => {
               select
               label="Rodzaj usługi"
               name="serviceType"
-              value={filters.serviceType || ''}
+              value={filters?.serviceType || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {serviceTypes.map((type) => (
+              {Array.isArray(serviceTypes) && serviceTypes.map((type) => (
                 <MenuItem key={type.id} value={type.id}>
                   {type.name}
                 </MenuItem>
@@ -168,11 +168,11 @@ const PurchasesPage = () => {
               select
               label="Kontrahent"
               name="contractor"
-              value={filters.contractor || ''}
+              value={filters?.contractor || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszyscy</MenuItem>
-              {contractors.map((contractor) => (
+              {Array.isArray(contractors) && contractors.map((contractor) => (
                 <MenuItem key={contractor.id} value={contractor.id}>
                   {contractor.name}
                 </MenuItem>
@@ -185,11 +185,11 @@ const PurchasesPage = () => {
               select
               label="Kategoria kosztu"
               name="costCategory"
-              value={filters.costCategory || ''}
+              value={filters?.costCategory || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {costCategories.map((category) => (
+              {Array.isArray(costCategories) && costCategories.map((category) => (
                 <MenuItem key={category.id} value={category.id}>
                   {category.name}
                 </MenuItem>
@@ -225,18 +225,18 @@ const PurchasesPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredPurchases.length > 0 ? (
+              {filteredPurchases && filteredPurchases.length > 0 ? (
                 filteredPurchases.map((purchase) => (
                   <TableRow key={purchase.id}>
-                    <TableCell>{new Date(purchase.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{purchase.department}</TableCell>
-                    <TableCell>{purchase.group}</TableCell>
-                    <TableCell>{purchase.serviceType}</TableCell>
-                    <TableCell>{purchase.contractor}</TableCell>
-                    <TableCell>{purchase.costCategory}</TableCell>
-                    <TableCell align="right">{purchase.netAmount.toLocaleString()} zł</TableCell>
-                    <TableCell align="right">{purchase.vatAmount.toLocaleString()} zł</TableCell>
-                    <TableCell align="right">{purchase.grossAmount.toLocaleString()} zł</TableCell>
+                    <TableCell>{purchase.date ? new Date(purchase.date).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{purchase.department || '-'}</TableCell>
+                    <TableCell>{purchase.group || '-'}</TableCell>
+                    <TableCell>{purchase.serviceType || '-'}</TableCell>
+                    <TableCell>{purchase.contractor || '-'}</TableCell>
+                    <TableCell>{purchase.costCategory || '-'}</TableCell>
+                    <TableCell align="right">{purchase.netAmount ? purchase.netAmount.toLocaleString() : '0'} zł</TableCell>
+                    <TableCell align="right">{purchase.vatAmount ? purchase.vatAmount.toLocaleString() : '0'} zł</TableCell>
+                    <TableCell align="right">{purchase.grossAmount ? purchase.grossAmount.toLocaleString() : '0'} zł</TableCell>
                   </TableRow>
                 ))
               ) : (
@@ -253,9 +253,9 @@ const PurchasesPage = () => {
         <TablePagination
           rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"
-          count={pagination.totalItems}
-          rowsPerPage={pagination.pageSize}
-          page={pagination.page}
+          count={pagination?.totalItems || 0}
+          rowsPerPage={pagination?.pageSize || 10}
+          page={pagination?.page || 0}
           onPageChange={handlePageChange}
           onRowsPerPageChange={handleRowsPerPageChange}
           labelRowsPerPage="Wierszy na stronę:"

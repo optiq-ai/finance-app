@@ -30,7 +30,7 @@ import salesService from '../../services/salesService';
 const SalesPage = () => {
   const dispatch = useDispatch();
   const { sales, filteredSales, loading, error, filters, pagination } = useSelector((state) => state.sales);
-  const { departments, groups, serviceTypes } = useSelector((state) => state.dictionary);
+  const { departments = [], groups = [], serviceTypes = [] } = useSelector((state) => state.dictionary || {});
   
   useEffect(() => {
     const fetchSalesData = async () => {
@@ -44,7 +44,7 @@ const SalesPage = () => {
     };
 
     fetchSalesData();
-  }, [dispatch, filters, pagination.page, pagination.pageSize]);
+  }, [dispatch, filters, pagination?.page, pagination?.pageSize]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -59,7 +59,7 @@ const SalesPage = () => {
     dispatch(updatePagination({ pageSize: parseInt(event.target.value, 10), page: 0 }));
   };
 
-  if (loading && sales.length === 0) {
+  if (loading && (!sales || sales.length === 0)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -95,7 +95,7 @@ const SalesPage = () => {
               label="Data od"
               type="date"
               name="dateFrom"
-              value={filters.dateFrom || ''}
+              value={filters?.dateFrom || ''}
               onChange={handleFilterChange}
               InputLabelProps={{ shrink: true }}
             />
@@ -106,7 +106,7 @@ const SalesPage = () => {
               label="Data do"
               type="date"
               name="dateTo"
-              value={filters.dateTo || ''}
+              value={filters?.dateTo || ''}
               onChange={handleFilterChange}
               InputLabelProps={{ shrink: true }}
             />
@@ -117,11 +117,11 @@ const SalesPage = () => {
               select
               label="Oddział"
               name="department"
-              value={filters.department || ''}
+              value={filters?.department || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {departments.map((dept) => (
+              {Array.isArray(departments) && departments.map((dept) => (
                 <MenuItem key={dept.id} value={dept.id}>
                   {dept.name}
                 </MenuItem>
@@ -134,11 +134,11 @@ const SalesPage = () => {
               select
               label="Grupa"
               name="group"
-              value={filters.group || ''}
+              value={filters?.group || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {groups.map((group) => (
+              {Array.isArray(groups) && groups.map((group) => (
                 <MenuItem key={group.id} value={group.id}>
                   {group.name}
                 </MenuItem>
@@ -151,11 +151,11 @@ const SalesPage = () => {
               select
               label="Rodzaj usługi"
               name="serviceType"
-              value={filters.serviceType || ''}
+              value={filters?.serviceType || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
-              {serviceTypes.map((type) => (
+              {Array.isArray(serviceTypes) && serviceTypes.map((type) => (
                 <MenuItem key={type.id} value={type.id}>
                   {type.name}
                 </MenuItem>
@@ -167,7 +167,7 @@ const SalesPage = () => {
               fullWidth
               label="Klient"
               name="customer"
-              value={filters.customer || ''}
+              value={filters?.customer || ''}
               onChange={handleFilterChange}
             />
           </Grid>
@@ -177,7 +177,7 @@ const SalesPage = () => {
               select
               label="Kategoria"
               name="category"
-              value={filters.category || ''}
+              value={filters?.category || ''}
               onChange={handleFilterChange}
             >
               <MenuItem value="">Wszystkie</MenuItem>
@@ -215,18 +215,18 @@ const SalesPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredSales.length > 0 ? (
+              {filteredSales && filteredSales.length > 0 ? (
                 filteredSales.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{item.department}</TableCell>
-                    <TableCell>{item.group}</TableCell>
-                    <TableCell>{item.serviceType}</TableCell>
-                    <TableCell>{item.customer}</TableCell>
-                    <TableCell>{item.category}</TableCell>
-                    <TableCell align="right">{item.quantity}</TableCell>
-                    <TableCell align="right">{item.netAmount.toLocaleString()} zł</TableCell>
-                    <TableCell align="right">{item.averageValue.toLocaleString()} zł</TableCell>
+                    <TableCell>{item.date ? new Date(item.date).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{item.department || '-'}</TableCell>
+                    <TableCell>{item.group || '-'}</TableCell>
+                    <TableCell>{item.serviceType || '-'}</TableCell>
+                    <TableCell>{item.customer || '-'}</TableCell>
+                    <TableCell>{item.category || '-'}</TableCell>
+                    <TableCell align="right">{item.quantity || 0}</TableCell>
+                    <TableCell align="right">{item.netAmount ? item.netAmount.toLocaleString() : '0'} zł</TableCell>
+                    <TableCell align="right">{item.averageValue ? item.averageValue.toLocaleString() : '0'} zł</TableCell>
                   </TableRow>
                 ))
               ) : (
@@ -243,9 +243,9 @@ const SalesPage = () => {
         <TablePagination
           rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"
-          count={pagination.totalItems}
-          rowsPerPage={pagination.pageSize}
-          page={pagination.page}
+          count={pagination?.totalItems || 0}
+          rowsPerPage={pagination?.pageSize || 10}
+          page={pagination?.page || 0}
           onPageChange={handlePageChange}
           onRowsPerPageChange={handleRowsPerPageChange}
           labelRowsPerPage="Wierszy na stronę:"
