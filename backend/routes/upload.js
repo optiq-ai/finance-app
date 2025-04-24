@@ -209,7 +209,6 @@ const MOCK_MODE = false; // Ustaw na true, aby włączyć tryb testowy
  * @access  Private
  */
 router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => {
-  let transaction = null;
   let importedFile = null;
   
   try {
@@ -260,10 +259,7 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       return res.status(400).json({ message: `Błąd podczas odczytu pliku: ${err.message}` });
     }
 
-    // Rozpoczęcie transakcji
-    transaction = await sequelize.transaction();
-    
-    // Zapisanie informacji o pliku w bazie danych
+    // Zapisanie informacji o pliku w bazie danych - BEZ TRANSAKCJI
     console.log('Tworzenie rekordu ImportedFile...');
     importedFile = await ImportedFile.create({
       filename: req.file.filename,
@@ -272,88 +268,145 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       status: 'processing',
       importDate: new Date(),
       importedBy: req.user ? req.user.id : null
-    }, { transaction });
+    });
     console.log('Utworzono rekord ImportedFile:', importedFile.id);
 
     let processedRows = 0;
-
-    // Przetwarzanie danych w zależności od typu
+    let errorRows = 0;
+    
+    // Przetwarzanie danych w małych partiach
+    const BATCH_SIZE = 50;
+    
+    // Przetwarzanie danych w zależności od typu - BEZ TRANSAKCJI
     if (type === 'purchases') {
       console.log('Przetwarzanie danych zakupów...');
-      for (const row of data) {
+      for (let i = 0; i < data.length; i += BATCH_SIZE) {
+        const batch = data.slice(i, i + BATCH_SIZE);
+        
+        for (const row of batch) {
+          try {
+            const mappedData = mapPurchaseFields(row);
+            console.log('Zmapowane dane zakupu:', JSON.stringify(mappedData));
+            
+            const purchaseData = {
+              ...mappedData,
+              importedFileId: importedFile.id
+            };
+            
+            await Purchase.create(purchaseData);
+            processedRows++;
+          } catch (err) {
+            console.error('Błąd podczas przetwarzania wiersza zakupu:', err);
+            errorRows++;
+            // Kontynuujemy przetwarzanie pozostałych wierszy
+          }
+        }
+        
+        // Aktualizacja statusu co każdą partię
         try {
-          const mappedData = mapPurchaseFields(row);
-          console.log('Zmapowane dane zakupu:', JSON.stringify(mappedData));
-          
-          const purchaseData = {
-            ...mappedData,
-            importedFileId: importedFile.id
-          };
-          
-          await Purchase.create(purchaseData, { transaction });
-          processedRows++;
-        } catch (err) {
-          console.error('Błąd podczas przetwarzania wiersza zakupu:', err);
-          // Kontynuujemy przetwarzanie pozostałych wierszy, ale nie przerywamy całej transakcji
+          await ImportedFile.update(
+            {
+              status: 'processing',
+              rowsCount: processedRows
+            },
+            { where: { id: importedFile.id } }
+          );
+          console.log(`Zaktualizowano status pliku po przetworzeniu ${processedRows} wierszy`);
+        } catch (updateErr) {
+          console.error('Błąd podczas aktualizacji statusu pliku:', updateErr);
+          // Kontynuujemy mimo błędu aktualizacji
         }
       }
     } else if (type === 'payroll') {
       console.log('Przetwarzanie danych wypłat...');
-      for (const row of data) {
+      for (let i = 0; i < data.length; i += BATCH_SIZE) {
+        const batch = data.slice(i, i + BATCH_SIZE);
+        
+        for (const row of batch) {
+          try {
+            const mappedData = mapPayrollFields(row);
+            console.log('Zmapowane dane wypłaty:', JSON.stringify(mappedData));
+            
+            const payrollData = {
+              ...mappedData,
+              importedFileId: importedFile.id
+            };
+            
+            await Payroll.create(payrollData);
+            processedRows++;
+          } catch (err) {
+            console.error('Błąd podczas przetwarzania wiersza wypłaty:', err);
+            errorRows++;
+            // Kontynuujemy przetwarzanie pozostałych wierszy
+          }
+        }
+        
+        // Aktualizacja statusu co każdą partię
         try {
-          const mappedData = mapPayrollFields(row);
-          console.log('Zmapowane dane wypłaty:', JSON.stringify(mappedData));
-          
-          const payrollData = {
-            ...mappedData,
-            importedFileId: importedFile.id
-          };
-          
-          await Payroll.create(payrollData, { transaction });
-          processedRows++;
-        } catch (err) {
-          console.error('Błąd podczas przetwarzania wiersza wypłaty:', err);
-          // Kontynuujemy przetwarzanie pozostałych wierszy, ale nie przerywamy całej transakcji
+          await ImportedFile.update(
+            {
+              status: 'processing',
+              rowsCount: processedRows
+            },
+            { where: { id: importedFile.id } }
+          );
+          console.log(`Zaktualizowano status pliku po przetworzeniu ${processedRows} wierszy`);
+        } catch (updateErr) {
+          console.error('Błąd podczas aktualizacji statusu pliku:', updateErr);
+          // Kontynuujemy mimo błędu aktualizacji
         }
       }
     } else if (type === 'sales') {
       console.log('Przetwarzanie danych sprzedaży...');
-      for (const row of data) {
+      for (let i = 0; i < data.length; i += BATCH_SIZE) {
+        const batch = data.slice(i, i + BATCH_SIZE);
+        
+        for (const row of batch) {
+          try {
+            const mappedData = mapSaleFields(row);
+            console.log('Zmapowane dane sprzedaży:', JSON.stringify(mappedData));
+            
+            const saleData = {
+              ...mappedData,
+              importedFileId: importedFile.id
+            };
+            
+            await Sale.create(saleData);
+            processedRows++;
+          } catch (err) {
+            console.error('Błąd podczas przetwarzania wiersza sprzedaży:', err);
+            errorRows++;
+            // Kontynuujemy przetwarzanie pozostałych wierszy
+          }
+        }
+        
+        // Aktualizacja statusu co każdą partię
         try {
-          const mappedData = mapSaleFields(row);
-          console.log('Zmapowane dane sprzedaży:', JSON.stringify(mappedData));
-          
-          const saleData = {
-            ...mappedData,
-            importedFileId: importedFile.id
-          };
-          
-          await Sale.create(saleData, { transaction });
-          processedRows++;
-        } catch (err) {
-          console.error('Błąd podczas przetwarzania wiersza sprzedaży:', err);
-          // Kontynuujemy przetwarzanie pozostałych wierszy, ale nie przerywamy całej transakcji
+          await ImportedFile.update(
+            {
+              status: 'processing',
+              rowsCount: processedRows
+            },
+            { where: { id: importedFile.id } }
+          );
+          console.log(`Zaktualizowano status pliku po przetworzeniu ${processedRows} wierszy`);
+        } catch (updateErr) {
+          console.error('Błąd podczas aktualizacji statusu pliku:', updateErr);
+          // Kontynuujemy mimo błędu aktualizacji
         }
       }
     }
 
+    // Finalna aktualizacja statusu pliku - BEZ TRANSAKCJI
     try {
-      // Aktualizacja informacji o pliku
-      console.log('Aktualizacja statusu pliku, przetworzono wierszy:', processedRows);
+      console.log('Finalna aktualizacja statusu pliku, przetworzono wierszy:', processedRows);
       await ImportedFile.update(
         {
           status: 'completed',
           rowsCount: processedRows
-        }, 
-        { 
-          where: { id: importedFile.id },
-          transaction 
-        }
+        },
+        { where: { id: importedFile.id } }
       );
-
-      // Zatwierdzenie transakcji
-      await transaction.commit();
-      transaction = null;
 
       console.log('Przetwarzanie pliku zakończone pomyślnie');
       res.status(201).json({
@@ -365,37 +418,29 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
           fileSize: req.file.size,
           type: type,
           status: 'completed',
-          processedRows: processedRows
+          processedRows: processedRows,
+          errorRows: errorRows
         },
         processedRows: processedRows
       });
     } catch (updateErr) {
-      console.error('Błąd podczas aktualizacji statusu pliku:', updateErr);
-      if (transaction) await transaction.rollback();
-      transaction = null;
-      res.status(500).json({ message: 'Błąd podczas aktualizacji statusu pliku', error: updateErr.message });
+      console.error('Błąd podczas finalnej aktualizacji statusu pliku:', updateErr);
+      res.status(500).json({ message: 'Plik został przetworzony, ale wystąpił błąd podczas aktualizacji statusu', processedRows: processedRows, errorRows: errorRows });
     }
   } catch (err) {
-    // Wycofanie transakcji w przypadku błędu
     console.error('Upload error:', err);
-    if (transaction) await transaction.rollback();
     
     // Jeśli plik został już utworzony w bazie, ale wystąpił błąd podczas przetwarzania,
-    // aktualizujemy jego status na 'error' w nowej transakcji
+    // aktualizujemy jego status na 'error'
     if (importedFile) {
       try {
-        const errorTransaction = await sequelize.transaction();
         await ImportedFile.update(
           {
             status: 'error',
             errorMessage: err.message
           },
-          {
-            where: { id: importedFile.id },
-            transaction: errorTransaction
-          }
+          { where: { id: importedFile.id } }
         );
-        await errorTransaction.commit();
       } catch (updateErr) {
         console.error('Błąd podczas aktualizacji statusu pliku na error:', updateErr);
         // Ignorujemy błąd aktualizacji statusu, aby zwrócić oryginalny błąd
@@ -566,8 +611,6 @@ router.get('/:id', async (req, res) => {
  * @access  Private
  */
 router.delete('/:id', async (req, res) => {
-  let transaction = null;
-  
   try {
     const fileId = req.params.id;
     console.log(`Usuwanie pliku o ID: ${fileId}`);
@@ -588,34 +631,26 @@ router.delete('/:id', async (req, res) => {
     
     console.log(`Znaleziono plik: ${importedFile.originalFilename}, typ: ${importedFile.fileType}`);
     
-    // Rozpoczęcie transakcji
-    transaction = await sequelize.transaction();
-    
-    // Usuwanie powiązanych danych w zależności od typu pliku
+    // Usuwanie powiązanych danych w zależności od typu pliku - BEZ TRANSAKCJI
     try {
       if (importedFile.fileType === 'purchase') {
         const deleted = await Purchase.destroy({ 
-          where: { importedFileId: fileId },
-          transaction
+          where: { importedFileId: fileId }
         });
         console.log(`Usunięto ${deleted} rekordów zakupów`);
       } else if (importedFile.fileType === 'payroll') {
         const deleted = await Payroll.destroy({ 
-          where: { importedFileId: fileId },
-          transaction
+          where: { importedFileId: fileId }
         });
         console.log(`Usunięto ${deleted} rekordów wypłat`);
       } else if (importedFile.fileType === 'sale') {
         const deleted = await Sale.destroy({ 
-          where: { importedFileId: fileId },
-          transaction
+          where: { importedFileId: fileId }
         });
         console.log(`Usunięto ${deleted} rekordów sprzedaży`);
       }
     } catch (err) {
       console.error('Błąd podczas usuwania powiązanych danych:', err);
-      if (transaction) await transaction.rollback();
-      transaction = null;
       return res.status(500).json({ message: `Błąd podczas usuwania powiązanych danych: ${err.message}` });
     }
     
@@ -634,17 +669,11 @@ router.delete('/:id', async (req, res) => {
     }
     
     // Usuwanie rekordu z bazy danych
-    await importedFile.destroy({ transaction });
+    await importedFile.destroy();
     console.log(`Usunięto rekord ImportedFile o ID: ${fileId}`);
-    
-    // Zatwierdzenie transakcji
-    await transaction.commit();
-    transaction = null;
     
     res.json({ message: 'Plik i powiązane dane zostały usunięte' });
   } catch (err) {
-    // Wycofanie transakcji w przypadku błędu
-    if (transaction) await transaction.rollback();
     console.error('Upload delete error:', err);
     res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
