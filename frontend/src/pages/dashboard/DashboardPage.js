@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
@@ -9,33 +9,54 @@ import {
   CardContent,
   CardHeader,
   Divider,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import {
   fetchDashboardDataStart,
   fetchDashboardDataSuccess,
   fetchDashboardDataFailure
 } from '../../redux/slices/dashboardSlice';
+import { resetDataRefreshNeeded } from '../../redux/slices/uploadSlice';
 import dashboardService from '../../services/dashboardService';
 import { formatCurrency, formatPercentage } from '../../utils/numberUtils';
 
 const DashboardPage = () => {
   const dispatch = useDispatch();
   const { kpis = {}, charts = [], loading, error, filters } = useSelector((state) => state.dashboard || {});
+  const { dataRefreshNeeded } = useSelector((state) => state.upload);
+  const [refreshAlert, setRefreshAlert] = useState(false);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        dispatch(fetchDashboardDataStart());
-        const data = await dashboardService.getDashboardData(filters);
-        dispatch(fetchDashboardDataSuccess(data));
-      } catch (err) {
-        dispatch(fetchDashboardDataFailure(err?.message || 'Wystąpił błąd podczas pobierania danych'));
+  // Funkcja do pobierania danych dashboardu
+  const fetchDashboardData = async () => {
+    try {
+      dispatch(fetchDashboardDataStart());
+      const data = await dashboardService.getDashboardData(filters);
+      dispatch(fetchDashboardDataSuccess(data));
+      
+      // Jeśli odświeżenie było spowodowane nowym uploadem, pokazujemy alert
+      if (dataRefreshNeeded) {
+        setRefreshAlert(true);
+        setTimeout(() => setRefreshAlert(false), 5000); // Ukryj alert po 5 sekundach
       }
-    };
+    } catch (err) {
+      dispatch(fetchDashboardDataFailure(err?.message || 'Wystąpił błąd podczas pobierania danych'));
+    }
+  };
 
+  // Efekt do pobierania danych przy zmianie filtrów
+  useEffect(() => {
     fetchDashboardData();
   }, [dispatch, filters]);
+
+  // Efekt do odświeżania danych po uploadzie
+  useEffect(() => {
+    if (dataRefreshNeeded) {
+      console.log('Odświeżanie danych dashboardu po uploadzie...');
+      fetchDashboardData();
+      dispatch(resetDataRefreshNeeded());
+    }
+  }, [dataRefreshNeeded, dispatch]);
 
   if (loading) {
     return (
@@ -68,6 +89,12 @@ const DashboardPage = () => {
       <Typography variant="h4" gutterBottom>
         Dashboard
       </Typography>
+      
+      {refreshAlert && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setRefreshAlert(false)}>
+          Dane zostały zaktualizowane po przesłaniu nowego pliku.
+        </Alert>
+      )}
       
       {/* KPI Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

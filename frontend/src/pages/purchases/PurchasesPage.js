@@ -16,7 +16,8 @@ import {
   MenuItem,
   Button,
   CircularProgress,
-  Divider
+  Divider,
+  Alert
 } from '@mui/material';
 import {
   fetchPurchasesStart,
@@ -25,6 +26,7 @@ import {
   updateFilters,
   updatePagination
 } from '../../redux/slices/purchasesSlice';
+import { resetDataRefreshNeeded } from '../../redux/slices/uploadSlice';
 import purchasesService from '../../services/purchasesService';
 import { formatDate } from '../../utils/dateUtils';
 import { formatCurrency } from '../../utils/numberUtils';
@@ -33,20 +35,39 @@ const PurchasesPage = () => {
   const dispatch = useDispatch();
   const { purchases, filteredPurchases, loading, error, filters, pagination } = useSelector((state) => state.purchases);
   const { departments = [], groups = [], serviceTypes = [], contractors = [], costCategories = [] } = useSelector((state) => state.dictionary || {});
+  const { dataRefreshNeeded, lastUploadType } = useSelector((state) => state.upload);
+  const [refreshAlert, setRefreshAlert] = useState(false);
   
-  useEffect(() => {
-    const fetchPurchases = async () => {
-      try {
-        dispatch(fetchPurchasesStart());
-        const data = await purchasesService.getPurchases(filters, pagination);
-        dispatch(fetchPurchasesSuccess(data));
-      } catch (err) {
-        dispatch(fetchPurchasesFailure(err.message));
+  // Pobieranie danych zakupów
+  const fetchPurchases = async () => {
+    try {
+      dispatch(fetchPurchasesStart());
+      const data = await purchasesService.getPurchases(filters, pagination);
+      dispatch(fetchPurchasesSuccess(data));
+      
+      // Jeśli odświeżenie było spowodowane nowym uploadem, pokazujemy alert
+      if (dataRefreshNeeded && (lastUploadType === 'purchase' || lastUploadType === null)) {
+        setRefreshAlert(true);
+        setTimeout(() => setRefreshAlert(false), 5000); // Ukryj alert po 5 sekundach
       }
-    };
+    } catch (err) {
+      dispatch(fetchPurchasesFailure(err.message));
+    }
+  };
 
+  // Efekt do pobierania danych przy zmianie filtrów lub paginacji
+  useEffect(() => {
     fetchPurchases();
   }, [dispatch, filters, pagination.page, pagination.pageSize]);
+
+  // Efekt do odświeżania danych po uploadzie
+  useEffect(() => {
+    if (dataRefreshNeeded && (lastUploadType === 'purchase' || lastUploadType === null)) {
+      console.log('Odświeżanie danych zakupów po uploadzie...');
+      fetchPurchases();
+      dispatch(resetDataRefreshNeeded());
+    }
+  }, [dataRefreshNeeded, lastUploadType, dispatch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -59,6 +80,22 @@ const PurchasesPage = () => {
 
   const handleRowsPerPageChange = (event) => {
     dispatch(updatePagination({ pageSize: parseInt(event.target.value, 10), page: 0 }));
+  };
+
+  const handleRefresh = () => {
+    fetchPurchases();
+  };
+
+  const handleResetFilters = () => {
+    dispatch(updateFilters({
+      dateFrom: '',
+      dateTo: '',
+      department: '',
+      group: '',
+      serviceType: '',
+      contractor: '',
+      costCategory: ''
+    }));
   };
 
   if (loading && (!purchases || purchases.length === 0)) {
@@ -84,6 +121,12 @@ const PurchasesPage = () => {
       <Typography variant="h4" gutterBottom>
         Zakupy
       </Typography>
+      
+      {refreshAlert && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setRefreshAlert(false)}>
+          Dane zostały zaktualizowane po przesłaniu nowego pliku.
+        </Alert>
+      )}
       
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -199,10 +242,10 @@ const PurchasesPage = () => {
             </TextField>
           </Grid>
           <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Button variant="contained" color="primary" sx={{ mr: 1 }}>
+            <Button variant="contained" color="primary" onClick={handleRefresh} sx={{ mr: 1 }}>
               Filtruj
             </Button>
-            <Button variant="outlined">
+            <Button variant="outlined" onClick={handleResetFilters}>
               Resetuj
             </Button>
           </Grid>

@@ -7,7 +7,9 @@ const initialState = {
   currentFile: null,
   fileHistory: [],
   isLoadingHistory: false,
-  error: null
+  error: null,
+  dataRefreshNeeded: false, // Nowe pole do sygnalizowania potrzeby odświeżenia danych
+  lastUploadType: null // Typ ostatnio przesłanego pliku
 };
 
 const uploadSlice = createSlice({
@@ -18,6 +20,7 @@ const uploadSlice = createSlice({
       state.uploadStatus = 'uploading';
       state.uploadProgress = 0;
       state.error = null;
+      state.dataRefreshNeeded = false;
     },
     uploadProgress: (state, action) => {
       state.uploadProgress = action.payload;
@@ -28,10 +31,13 @@ const uploadSlice = createSlice({
       state.uploadedFiles = [...state.uploadedFiles, action.payload.importedFile];
       state.currentFile = action.payload.importedFile;
       state.error = null;
+      state.dataRefreshNeeded = true; // Ustawiamy flagę, że dane wymagają odświeżenia
+      state.lastUploadType = action.payload.importedFile?.fileType || null; // Zapisujemy typ przesłanego pliku
     },
     uploadFailure: (state, action) => {
       state.uploadStatus = 'error';
       state.error = action.payload;
+      state.dataRefreshNeeded = false;
     },
     resetUploadStatus: (state) => {
       state.uploadStatus = 'idle';
@@ -63,9 +69,14 @@ const uploadSlice = createSlice({
       if (state.currentFile && state.currentFile.id === action.payload) {
         state.currentFile = null;
       }
+      state.dataRefreshNeeded = true; // Ustawiamy flagę, że dane wymagają odświeżenia po usunięciu pliku
     },
     deleteFileFailure: (state, action) => {
       state.error = action.payload;
+    },
+    // Nowa akcja do resetowania flagi odświeżania danych
+    resetDataRefreshNeeded: (state) => {
+      state.dataRefreshNeeded = false;
     }
   }
 });
@@ -82,7 +93,8 @@ export const {
   fetchHistoryFailure,
   deleteFileStart,
   deleteFileSuccess,
-  deleteFileFailure
+  deleteFileFailure,
+  resetDataRefreshNeeded
 } = uploadSlice.actions;
 
 export default uploadSlice.reducer;
