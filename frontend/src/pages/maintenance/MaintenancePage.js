@@ -2,14 +2,14 @@ import React from 'react';
 import { Box, Typography, Button, Container, Grid, Paper } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import dictionaryService from '../services/dictionaryService';
-import purchasesService from '../services/purchasesService';
-import payrollService from '../services/payrollService';
-import salesService from '../services/salesService';
-import { fetchDictionariesSuccess } from '../redux/slices/dictionarySlice';
-import { fetchPurchasesSuccess } from '../redux/slices/purchasesSlice';
-import { fetchPayrollSuccess } from '../redux/slices/payrollSlice';
-import { fetchSalesSuccess } from '../redux/slices/salesSlice';
+import dictionaryService from '../../services/dictionaryService';
+import purchasesService from '../../services/purchasesService';
+import payrollService from '../../services/payrollService';
+import salesService from '../../services/salesService';
+import { fetchDictionariesSuccess } from '../../redux/slices/dictionarySlice';
+import { fetchPurchasesSuccess } from '../../redux/slices/purchasesSlice';
+import { fetchPayrollSuccess } from '../../redux/slices/payrollSlice';
+import { fetchSalesSuccess } from '../../redux/slices/salesSlice';
 
 const MaintenancePage = () => {
   const dispatch = useDispatch();
