@@ -26,6 +26,8 @@ import {
   updatePagination
 } from '../../redux/slices/purchasesSlice';
 import purchasesService from '../../services/purchasesService';
+import { formatDate } from '../../utils/dateUtils';
+import { formatCurrency } from '../../utils/numberUtils';
 
 const PurchasesPage = () => {
   const dispatch = useDispatch();
@@ -228,15 +230,15 @@ const PurchasesPage = () => {
               {filteredPurchases && filteredPurchases.length > 0 ? (
                 filteredPurchases.map((purchase) => (
                   <TableRow key={purchase.id}>
-                    <TableCell>{purchase.date ? new Date(purchase.date).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{formatDate(purchase.date)}</TableCell>
                     <TableCell>{purchase.department || '-'}</TableCell>
                     <TableCell>{purchase.group || '-'}</TableCell>
                     <TableCell>{purchase.serviceType || '-'}</TableCell>
                     <TableCell>{purchase.contractor || '-'}</TableCell>
                     <TableCell>{purchase.costCategory || '-'}</TableCell>
-                    <TableCell align="right">{purchase.netAmount ? purchase.netAmount.toLocaleString() : '0'} zł</TableCell>
-                    <TableCell align="right">{purchase.vatAmount ? purchase.vatAmount.toLocaleString() : '0'} zł</TableCell>
-                    <TableCell align="right">{purchase.grossAmount ? purchase.grossAmount.toLocaleString() : '0'} zł</TableCell>
+                    <TableCell align="right">{formatCurrency(purchase.netAmount)}</TableCell>
+                    <TableCell align="right">{formatCurrency(purchase.vatAmount)}</TableCell>
+                    <TableCell align="right">{formatCurrency(purchase.grossAmount)}</TableCell>
                   </TableRow>
                 ))
               ) : (

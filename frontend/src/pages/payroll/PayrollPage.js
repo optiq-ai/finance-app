@@ -26,6 +26,8 @@ import {
   updatePagination
 } from '../../redux/slices/payrollSlice';
 import payrollService from '../../services/payrollService';
+import { formatDate } from '../../utils/dateUtils';
+import { formatCurrency } from '../../utils/numberUtils';
 
 const PayrollPage = () => {
   const dispatch = useDispatch();
@@ -219,16 +221,16 @@ const PayrollPage = () => {
               {filteredPayroll && filteredPayroll.length > 0 ? (
                 filteredPayroll.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.date ? new Date(item.date).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{formatDate(item.date)}</TableCell>
                     <TableCell>{item.department || '-'}</TableCell>
                     <TableCell>{item.group || '-'}</TableCell>
                     <TableCell>{item.serviceType || '-'}</TableCell>
                     <TableCell>{item.employee || '-'}</TableCell>
                     <TableCell>{item.category || '-'}</TableCell>
-                    <TableCell align="right">{item.grossAmount ? item.grossAmount.toLocaleString() : '0'} zł</TableCell>
-                    <TableCell align="right">{item.contributions ? item.contributions.toLocaleString() : '0'} zł</TableCell>
-                    <TableCell align="right">{item.tax ? item.tax.toLocaleString() : '0'} zł</TableCell>
-                    <TableCell align="right">{item.netAmount ? item.netAmount.toLocaleString() : '0'} zł</TableCell>
+                    <TableCell align="right">{formatCurrency(item.grossAmount)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.contributions)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.tax)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.netAmount)}</TableCell>
                   </TableRow>
                 ))
               ) : (

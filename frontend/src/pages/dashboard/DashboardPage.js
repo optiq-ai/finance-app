@@ -17,6 +17,7 @@ import {
   fetchDashboardDataFailure
 } from '../../redux/slices/dashboardSlice';
 import dashboardService from '../../services/dashboardService';
+import { formatCurrency, formatPercentage } from '../../utils/numberUtils';
 
 const DashboardPage = () => {
   const dispatch = useDispatch();
@@ -74,9 +75,9 @@ const DashboardPage = () => {
           <Card>
             <CardHeader title="Przychody" />
             <CardContent>
-              <Typography variant="h4">{totalRevenue.toLocaleString()} zł</Typography>
+              <Typography variant="h4">{formatCurrency(totalRevenue)}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Średnio: {averageRevenue.toLocaleString()} zł
+                Średnio: {formatCurrency(averageRevenue)}
               </Typography>
             </CardContent>
           </Card>
@@ -85,9 +86,9 @@ const DashboardPage = () => {
           <Card>
             <CardHeader title="Koszty" />
             <CardContent>
-              <Typography variant="h4">{totalCosts.toLocaleString()} zł</Typography>
+              <Typography variant="h4">{formatCurrency(totalCosts)}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Średnio: {averageCost.toLocaleString()} zł
+                Średnio: {formatCurrency(averageCost)}
               </Typography>
             </CardContent>
           </Card>
@@ -96,9 +97,9 @@ const DashboardPage = () => {
           <Card>
             <CardHeader title="Zysk" />
             <CardContent>
-              <Typography variant="h4">{totalProfit.toLocaleString()} zł</Typography>
+              <Typography variant="h4">{formatCurrency(totalProfit)}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Marża: {profitMargin.toFixed(2)}%
+                Marża: {formatPercentage(profitMargin)}
               </Typography>
             </CardContent>
           </Card>

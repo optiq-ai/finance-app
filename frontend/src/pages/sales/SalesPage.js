@@ -26,6 +26,8 @@ import {
   updatePagination
 } from '../../redux/slices/salesSlice';
 import salesService from '../../services/salesService';
+import { formatDate } from '../../utils/dateUtils';
+import { formatCurrency, formatNumber } from '../../utils/numberUtils';
 
 const SalesPage = () => {
   const dispatch = useDispatch();
@@ -218,15 +220,15 @@ const SalesPage = () => {
               {filteredSales && filteredSales.length > 0 ? (
                 filteredSales.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.date ? new Date(item.date).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{formatDate(item.date)}</TableCell>
                     <TableCell>{item.department || '-'}</TableCell>
                     <TableCell>{item.group || '-'}</TableCell>
                     <TableCell>{item.serviceType || '-'}</TableCell>
                     <TableCell>{item.customer || '-'}</TableCell>
                     <TableCell>{item.category || '-'}</TableCell>
-                    <TableCell align="right">{item.quantity || 0}</TableCell>
-                    <TableCell align="right">{item.netAmount ? item.netAmount.toLocaleString() : '0'} zł</TableCell>
-                    <TableCell align="right">{item.averageValue ? item.averageValue.toLocaleString() : '0'} zł</TableCell>
+                    <TableCell align="right">{formatNumber(item.quantity, 0, '0')}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.netAmount)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.averageValue)}</TableCell>
                   </TableRow>
                 ))
               ) : (

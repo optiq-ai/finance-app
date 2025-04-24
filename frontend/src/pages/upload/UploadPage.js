@@ -31,6 +31,7 @@ import {
   resetUploadStatus
 } from '../../redux/slices/uploadSlice';
 import uploadService from '../../services/uploadService';
+import { formatDateTime } from '../../utils/dateUtils';
 
 const UploadPage = () => {
   const dispatch = useDispatch();
@@ -228,7 +229,7 @@ const UploadPage = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={file.fileName}
-                        secondary={`${file.type} - ${new Date(file.date).toLocaleString()}`}
+                        secondary={`${file.type} - ${formatDateTime(file.date, 'Brak daty')}`}
                       />
                     </ListItem>
                   ))}
