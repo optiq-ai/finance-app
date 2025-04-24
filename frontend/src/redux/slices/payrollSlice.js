@@ -1,8 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  payrolls: [],
-  filteredPayrolls: [],
+  payroll: [],
+  filteredPayroll: [],
   filterOptions: {
     departments: [],
     groups: [],
@@ -11,6 +11,7 @@ const initialState = {
   currentPayroll: null,
   loading: false,
   error: null,
+  lastUpdated: null,
   filters: {
     dateFrom: '',
     dateTo: '',
@@ -35,7 +36,7 @@ const payrollSlice = createSlice({
       state.error = null;
     },
     fetchPayrollSuccess: (state, action) => {
-      console.log('Otrzymane dane wypłat:', action.payload);
+      console.log('Aktualizacja wypłat w Redux:', action.payload);
       
       // Zapewnienie, że mamy tablicę elementów, nawet jeśli API zwróci null lub undefined
       const items = Array.isArray(action.payload.items) ? action.payload.items : [];
@@ -47,15 +48,15 @@ const payrollSlice = createSlice({
         department: item.department || '-',
         group: item.group || '-',
         employeeName: item.employeeName || '-',
-        employee: item.employee || '-',
+        position: item.position || '-',
         grossAmount: item.grossAmount || 0,
         netAmount: item.netAmount || 0,
         taxAmount: item.taxAmount || 0,
         ...item
       }));
       
-      state.payrolls = formattedItems;
-      state.filteredPayrolls = formattedItems;
+      state.payroll = formattedItems;
+      state.filteredPayroll = formattedItems;
       state.pagination.totalItems = action.payload.totalItems || 0;
       state.pagination.totalPages = action.payload.totalPages || 0;
       state.pagination.page = action.payload.page || 0;
@@ -67,6 +68,13 @@ const payrollSlice = createSlice({
       }
       
       state.loading = false;
+      state.lastUpdated = new Date().toISOString();
+      
+      console.log('Stan wypłat po aktualizacji:', {
+        ilość: formattedItems.length,
+        totalItems: state.pagination.totalItems,
+        przykład: formattedItems.length > 0 ? formattedItems[0] : null
+      });
     },
     fetchPayrollFailure: (state, action) => {
       state.loading = false;

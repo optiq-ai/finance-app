@@ -1,4 +1,5 @@
 import api from './api';
+import dataLogger from '../utils/DataLogger';
 
 const salesService = {
   /**
@@ -8,8 +9,9 @@ const salesService = {
    * @returns {Promise} - Obiekt z danymi sprzedaży
    */
   getSales: async (filters = {}, pagination = { page: 0, pageSize: 10 }) => {
+    const startTime = Date.now();
     try {
-      console.log('Pobieranie danych sprzedaży z parametrami:', { filters, pagination });
+      dataLogger.apiRequest('GET', '/sales', { ...filters, ...pagination }, null);
       
       const response = await api.get('/sales', { 
         params: { 
@@ -19,7 +21,8 @@ const salesService = {
         } 
       });
       
-      console.log('Otrzymane dane sprzedaży:', response.data);
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', '/sales', response.status, response.data, duration);
       
       // Sprawdź, czy dane są w oczekiwanym formacie
       const data = response.data || {};
@@ -41,21 +44,22 @@ const salesService = {
         ...item
       }));
       
-      console.log('Sformatowane dane sprzedaży:', { 
-        totalItems: data.totalItems || 0, 
-        items: formattedItems.length, 
-        przykład: formattedItems.length > 0 ? formattedItems[0] : null 
-      });
-      
-      return {
-        totalItems: data.totalItems || 0,
+      const formattedData = {
         items: formattedItems,
+        totalItems: data.totalItems || 0,
         page: data.page || pagination.page,
         pageSize: data.pageSize || pagination.pageSize,
         totalPages: data.totalPages || Math.ceil((data.totalItems || 0) / pagination.pageSize)
       };
+      
+      dataLogger.dataFlow('salesService', 'getSales', 
+        { filters, pagination }, 
+        { itemsCount: formattedItems.length, totalItems: formattedData.totalItems }
+      );
+      
+      return formattedData;
     } catch (error) {
-      console.error('Błąd pobierania danych sprzedaży:', error);
+      dataLogger.apiError('GET', '/sales', error, { filters, pagination });
       throw new Error(error.response?.data?.message || 'Błąd pobierania danych sprzedaży');
     }
   },
@@ -66,11 +70,14 @@ const salesService = {
    * @returns {Promise} - Obiekt ze szczegółami sprzedaży
    */
   getSaleDetails: async (id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Pobieranie szczegółów sprzedaży o ID: ${id}`);
+      dataLogger.apiRequest('GET', `/sales/${id}`, null, null);
       
       const response = await api.get(`/sales/${id}`);
-      console.log('Otrzymane szczegóły sprzedaży:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', `/sales/${id}`, response.status, response.data, duration);
       
       // Dodanie domyślnych wartości dla pustych pól
       const sale = response.data || {};
@@ -89,9 +96,14 @@ const salesService = {
         ...sale
       };
       
+      dataLogger.dataFlow('salesService', 'getSaleDetails', 
+        { id }, 
+        { sale: formattedSale }
+      );
+      
       return formattedSale;
     } catch (error) {
-      console.error(`Błąd pobierania szczegółów sprzedaży o ID ${id}:`, error);
+      dataLogger.apiError('GET', `/sales/${id}`, error);
       throw new Error(error.response?.data?.message || 'Błąd pobierania szczegółów sprzedaży');
     }
   },
@@ -102,15 +114,23 @@ const salesService = {
    * @returns {Promise} - Obiekt z dodaną sprzedażą
    */
   addSale: async (saleData) => {
+    const startTime = Date.now();
     try {
-      console.log('Dodawanie nowej sprzedaży:', saleData);
+      dataLogger.apiRequest('POST', '/sales', null, saleData);
       
       const response = await api.post('/sales', saleData);
-      console.log('Odpowiedź po dodaniu sprzedaży:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('POST', '/sales', response.status, response.data, duration);
+      
+      dataLogger.dataFlow('salesService', 'addSale', 
+        { saleData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error('Błąd dodawania sprzedaży:', error);
+      dataLogger.apiError('POST', '/sales', error, { saleData });
       throw new Error(error.response?.data?.message || 'Błąd dodawania sprzedaży');
     }
   },
@@ -122,15 +142,23 @@ const salesService = {
    * @returns {Promise} - Obiekt z zaktualizowaną sprzedażą
    */
   updateSale: async (id, saleData) => {
+    const startTime = Date.now();
     try {
-      console.log(`Aktualizacja sprzedaży o ID ${id}:`, saleData);
+      dataLogger.apiRequest('PUT', `/sales/${id}`, null, saleData);
       
       const response = await api.put(`/sales/${id}`, saleData);
-      console.log('Odpowiedź po aktualizacji sprzedaży:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('PUT', `/sales/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('salesService', 'updateSale', 
+        { id, saleData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd aktualizacji sprzedaży o ID ${id}:`, error);
+      dataLogger.apiError('PUT', `/sales/${id}`, error, { id, saleData });
       throw new Error(error.response?.data?.message || 'Błąd aktualizacji sprzedaży');
     }
   },
@@ -141,15 +169,23 @@ const salesService = {
    * @returns {Promise} - Komunikat o powodzeniu operacji
    */
   deleteSale: async (id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Usuwanie sprzedaży o ID ${id}`);
+      dataLogger.apiRequest('DELETE', `/sales/${id}`, null, null);
       
       const response = await api.delete(`/sales/${id}`);
-      console.log('Odpowiedź po usunięciu sprzedaży:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('DELETE', `/sales/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('salesService', 'deleteSale', 
+        { id }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd usuwania sprzedaży o ID ${id}:`, error);
+      dataLogger.apiError('DELETE', `/sales/${id}`, error, { id });
       throw new Error(error.response?.data?.message || 'Błąd usuwania sprzedaży');
     }
   }

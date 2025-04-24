@@ -1,4 +1,5 @@
 import api from './api';
+import dataLogger from '../utils/DataLogger';
 
 const purchasesService = {
   /**
@@ -8,8 +9,9 @@ const purchasesService = {
    * @returns {Promise} - Obiekt z danymi zakupów
    */
   getPurchases: async (filters = {}, pagination = { page: 0, pageSize: 10 }) => {
+    const startTime = Date.now();
     try {
-      console.log('Pobieranie danych zakupów z parametrami:', { filters, pagination });
+      dataLogger.apiRequest('GET', '/purchases', { ...filters, ...pagination }, null);
       
       const response = await api.get('/purchases', { 
         params: { 
@@ -19,7 +21,8 @@ const purchasesService = {
         } 
       });
       
-      console.log('Otrzymane dane zakupów:', response.data);
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', '/purchases', response.status, response.data, duration);
       
       // Sprawdź, czy dane są w oczekiwanym formacie
       const data = response.data || {};
@@ -38,25 +41,25 @@ const purchasesService = {
         vatAmount: item.vatAmount || 0,
         grossAmount: item.grossAmount || 0,
         documentNumber: item.documentNumber || '-',
-        description: item.description || '-',
         ...item
       }));
       
-      console.log('Sformatowane dane zakupów:', { 
-        totalItems: data.totalItems || 0, 
-        items: formattedItems.length, 
-        przykład: formattedItems.length > 0 ? formattedItems[0] : null 
-      });
-      
-      return {
-        totalItems: data.totalItems || 0,
+      const formattedData = {
         items: formattedItems,
+        totalItems: data.totalItems || 0,
         page: data.page || pagination.page,
         pageSize: data.pageSize || pagination.pageSize,
         totalPages: data.totalPages || Math.ceil((data.totalItems || 0) / pagination.pageSize)
       };
+      
+      dataLogger.dataFlow('purchasesService', 'getPurchases', 
+        { filters, pagination }, 
+        { itemsCount: formattedItems.length, totalItems: formattedData.totalItems }
+      );
+      
+      return formattedData;
     } catch (error) {
-      console.error('Błąd pobierania danych zakupów:', error);
+      dataLogger.apiError('GET', '/purchases', error, { filters, pagination });
       throw new Error(error.response?.data?.message || 'Błąd pobierania danych zakupów');
     }
   },
@@ -67,11 +70,14 @@ const purchasesService = {
    * @returns {Promise} - Obiekt ze szczegółami zakupu
    */
   getPurchaseDetails: async (id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Pobieranie szczegółów zakupu o ID: ${id}`);
+      dataLogger.apiRequest('GET', `/purchases/${id}`, null, null);
       
       const response = await api.get(`/purchases/${id}`);
-      console.log('Otrzymane szczegóły zakupu:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', `/purchases/${id}`, response.status, response.data, duration);
       
       // Dodanie domyślnych wartości dla pustych pól
       const purchase = response.data || {};
@@ -87,13 +93,17 @@ const purchasesService = {
         vatAmount: purchase.vatAmount || 0,
         grossAmount: purchase.grossAmount || 0,
         documentNumber: purchase.documentNumber || '-',
-        description: purchase.description || '-',
         ...purchase
       };
       
+      dataLogger.dataFlow('purchasesService', 'getPurchaseDetails', 
+        { id }, 
+        { purchase: formattedPurchase }
+      );
+      
       return formattedPurchase;
     } catch (error) {
-      console.error(`Błąd pobierania szczegółów zakupu o ID ${id}:`, error);
+      dataLogger.apiError('GET', `/purchases/${id}`, error);
       throw new Error(error.response?.data?.message || 'Błąd pobierania szczegółów zakupu');
     }
   },
@@ -104,15 +114,23 @@ const purchasesService = {
    * @returns {Promise} - Obiekt z dodanym zakupem
    */
   addPurchase: async (purchaseData) => {
+    const startTime = Date.now();
     try {
-      console.log('Dodawanie nowego zakupu:', purchaseData);
+      dataLogger.apiRequest('POST', '/purchases', null, purchaseData);
       
       const response = await api.post('/purchases', purchaseData);
-      console.log('Odpowiedź po dodaniu zakupu:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('POST', '/purchases', response.status, response.data, duration);
+      
+      dataLogger.dataFlow('purchasesService', 'addPurchase', 
+        { purchaseData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error('Błąd dodawania zakupu:', error);
+      dataLogger.apiError('POST', '/purchases', error, { purchaseData });
       throw new Error(error.response?.data?.message || 'Błąd dodawania zakupu');
     }
   },
@@ -124,15 +142,23 @@ const purchasesService = {
    * @returns {Promise} - Obiekt z zaktualizowanym zakupem
    */
   updatePurchase: async (id, purchaseData) => {
+    const startTime = Date.now();
     try {
-      console.log(`Aktualizacja zakupu o ID ${id}:`, purchaseData);
+      dataLogger.apiRequest('PUT', `/purchases/${id}`, null, purchaseData);
       
       const response = await api.put(`/purchases/${id}`, purchaseData);
-      console.log('Odpowiedź po aktualizacji zakupu:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('PUT', `/purchases/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('purchasesService', 'updatePurchase', 
+        { id, purchaseData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd aktualizacji zakupu o ID ${id}:`, error);
+      dataLogger.apiError('PUT', `/purchases/${id}`, error, { id, purchaseData });
       throw new Error(error.response?.data?.message || 'Błąd aktualizacji zakupu');
     }
   },
@@ -143,15 +169,23 @@ const purchasesService = {
    * @returns {Promise} - Komunikat o powodzeniu operacji
    */
   deletePurchase: async (id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Usuwanie zakupu o ID ${id}`);
+      dataLogger.apiRequest('DELETE', `/purchases/${id}`, null, null);
       
       const response = await api.delete(`/purchases/${id}`);
-      console.log('Odpowiedź po usunięciu zakupu:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('DELETE', `/purchases/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('purchasesService', 'deletePurchase', 
+        { id }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd usuwania zakupu o ID ${id}:`, error);
+      dataLogger.apiError('DELETE', `/purchases/${id}`, error, { id });
       throw new Error(error.response?.data?.message || 'Błąd usuwania zakupu');
     }
   }

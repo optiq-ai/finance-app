@@ -1,93 +1,24 @@
-import React, { useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { AppBar, Box, Drawer, IconButton, List, ListItem, ListItemIcon, ListItemText, Toolbar, Typography, Divider, Container } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import PeopleIcon from '@mui/icons-material/People';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import LayersIcon from '@mui/icons-material/Layers';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import {
-  AppBar,
-  Box,
-  CssBaseline,
-  Divider,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Typography,
-  Avatar,
-  Menu,
-  MenuItem,
-  Button
-} from '@mui/material';
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  ShoppingCart as PurchasesIcon,
-  AttachMoney as PayrollIcon,
-  Storefront as SalesIcon,
-  CloudUpload as UploadIcon,
-  Book as DictionaryIcon,
-  Settings as SettingsIcon
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { logout } from '../redux/slices/authSlice';
-import { fetchDictionariesStart, fetchDictionariesSuccess, fetchDictionariesFailure } from '../redux/slices/dictionarySlice';
-import dictionaryService from '../services/dictionaryService';
 
 const drawerWidth = 240;
 
 const MainLayout = () => {
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const { user } = useSelector((state) => state.auth);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-
-  // Pobieranie słowników przy pierwszym renderowaniu
-  useEffect(() => {
-    const fetchDictionaries = async () => {
-      try {
-        console.log('Pobieranie słowników...');
-        dispatch(fetchDictionariesStart());
-        const dictionaries = await dictionaryService.getDictionaries();
-        console.log('Pobrane słowniki:', dictionaries);
-        dispatch(fetchDictionariesSuccess(dictionaries));
-      } catch (error) {
-        console.error('Błąd podczas pobierania słowników:', error);
-        dispatch(fetchDictionariesFailure(error.message));
-      }
-    };
-
-    fetchDictionaries();
-  }, [dispatch]);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
-
-  const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/login');
-  };
-
-  const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/app/dashboard' },
-    { text: 'Zakupy', icon: <PurchasesIcon />, path: '/app/purchases' },
-    { text: 'Wypłaty', icon: <PayrollIcon />, path: '/app/payroll' },
-    { text: 'Sprzedaż', icon: <SalesIcon />, path: '/app/sales' },
-    { text: 'Import', icon: <UploadIcon />, path: '/app/upload' },
-    { text: 'Słowniki', icon: <DictionaryIcon />, path: '/app/dictionaries' },
-    { text: 'Ustawienia', icon: <SettingsIcon />, path: '/app/settings' }
-  ];
 
   const drawer = (
     <div>
@@ -98,26 +29,54 @@ const MainLayout = () => {
       </Toolbar>
       <Divider />
       <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton onClick={() => navigate(item.path)}>
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        <ListItem button component={Link} to="/dashboard">
+          <ListItemIcon>
+            <DashboardIcon />
+          </ListItemIcon>
+          <ListItemText primary="Dashboard" />
+        </ListItem>
+        <ListItem button component={Link} to="/purchases">
+          <ListItemIcon>
+            <ShoppingCartIcon />
+          </ListItemIcon>
+          <ListItemText primary="Zakupy" />
+        </ListItem>
+        <ListItem button component={Link} to="/payroll">
+          <ListItemIcon>
+            <PeopleIcon />
+          </ListItemIcon>
+          <ListItemText primary="Wypłaty" />
+        </ListItem>
+        <ListItem button component={Link} to="/sales">
+          <ListItemIcon>
+            <BarChartIcon />
+          </ListItemIcon>
+          <ListItemText primary="Sprzedaż" />
+        </ListItem>
+        <ListItem button component={Link} to="/dictionaries">
+          <ListItemIcon>
+            <LayersIcon />
+          </ListItemIcon>
+          <ListItemText primary="Słowniki" />
+        </ListItem>
+        <Divider />
+        <ListItem button component={Link} to="/diagnostic">
+          <ListItemIcon>
+            <BugReportIcon />
+          </ListItemIcon>
+          <ListItemText primary="Diagnostyka" />
+        </ListItem>
       </List>
     </div>
   );
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` }
+          ml: { sm: `${drawerWidth}px` },
         }}
       >
         <Toolbar>
@@ -130,47 +89,26 @@ const MainLayout = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div">
             Aplikacja Finansowa
           </Typography>
-          <Button
-            color="inherit"
-            onClick={handleProfileMenuOpen}
-            startIcon={
-              <Avatar
-                sx={{ width: 32, height: 32 }}
-                alt={user?.username || 'User'}
-              >
-                {user?.username?.charAt(0).toUpperCase() || 'U'}
-              </Avatar>
-            }
-          >
-            {user?.username || 'Użytkownik'}
-          </Button>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
-          >
-            <MenuItem onClick={handleProfileMenuClose}>Profil</MenuItem>
-            <MenuItem onClick={handleLogout}>Wyloguj</MenuItem>
-          </Menu>
         </Toolbar>
       </AppBar>
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        aria-label="mailbox folders"
       >
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true // Better open performance on mobile.
+            keepMounted: true, // Better open performance on mobile.
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
         >
           {drawer}
@@ -179,7 +117,7 @@ const MainLayout = () => {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
           open
         >
@@ -188,14 +126,12 @@ const MainLayout = () => {
       </Box>
       <Box
         component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: 8
-        }}
+        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
       >
-        <Outlet />
+        <Toolbar />
+        <Container maxWidth="xl">
+          <Outlet />
+        </Container>
       </Box>
     </Box>
   );

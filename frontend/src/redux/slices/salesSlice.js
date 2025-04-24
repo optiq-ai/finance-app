@@ -7,18 +7,19 @@ const initialState = {
     departments: [],
     groups: [],
     serviceTypes: [],
-    customers: []
+    contractors: []
   },
   currentSale: null,
   loading: false,
   error: null,
+  lastUpdated: null,
   filters: {
     dateFrom: '',
     dateTo: '',
     department: '',
     group: '',
     serviceType: '',
-    customer: ''
+    contractor: ''
   },
   pagination: {
     page: 0,
@@ -37,7 +38,7 @@ const salesSlice = createSlice({
       state.error = null;
     },
     fetchSalesSuccess: (state, action) => {
-      console.log('Otrzymane dane sprzedaży:', action.payload);
+      console.log('Aktualizacja sprzedaży w Redux:', action.payload);
       
       // Zapewnienie, że mamy tablicę elementów, nawet jeśli API zwróci null lub undefined
       const items = Array.isArray(action.payload.items) ? action.payload.items : [];
@@ -49,11 +50,12 @@ const salesSlice = createSlice({
         department: item.department || '-',
         group: item.group || '-',
         serviceType: item.serviceType || '-',
-        customer: item.customer || '-',
-        documentNumber: item.documentNumber || '-',
+        contractor: item.contractor || '-',
+        quantity: item.quantity || 0,
         netAmount: item.netAmount || 0,
         vatAmount: item.vatAmount || 0,
         grossAmount: item.grossAmount || 0,
+        documentNumber: item.documentNumber || '-',
         ...item
       }));
       
@@ -70,6 +72,13 @@ const salesSlice = createSlice({
       }
       
       state.loading = false;
+      state.lastUpdated = new Date().toISOString();
+      
+      console.log('Stan sprzedaży po aktualizacji:', {
+        ilość: formattedItems.length,
+        totalItems: state.pagination.totalItems,
+        przykład: formattedItems.length > 0 ? formattedItems[0] : null
+      });
     },
     fetchSalesFailure: (state, action) => {
       state.loading = false;

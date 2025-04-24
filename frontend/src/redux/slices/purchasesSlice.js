@@ -13,6 +13,7 @@ const initialState = {
   currentPurchase: null,
   loading: false,
   error: null,
+  lastUpdated: null,
   filters: {
     dateFrom: '',
     dateTo: '',
@@ -39,7 +40,7 @@ const purchasesSlice = createSlice({
       state.error = null;
     },
     fetchPurchasesSuccess: (state, action) => {
-      console.log('Otrzymane dane zakupów:', action.payload);
+      console.log('Aktualizacja zakupów w Redux:', action.payload);
       
       // Zapewnienie, że mamy tablicę elementów, nawet jeśli API zwróci null lub undefined
       const items = Array.isArray(action.payload.items) ? action.payload.items : [];
@@ -56,6 +57,7 @@ const purchasesSlice = createSlice({
         netAmount: item.netAmount || 0,
         vatAmount: item.vatAmount || 0,
         grossAmount: item.grossAmount || 0,
+        documentNumber: item.documentNumber || '-',
         ...item
       }));
       
@@ -72,6 +74,13 @@ const purchasesSlice = createSlice({
       }
       
       state.loading = false;
+      state.lastUpdated = new Date().toISOString();
+      
+      console.log('Stan zakupów po aktualizacji:', {
+        ilość: formattedItems.length,
+        totalItems: state.pagination.totalItems,
+        przykład: formattedItems.length > 0 ? formattedItems[0] : null
+      });
     },
     fetchPurchasesFailure: (state, action) => {
       state.loading = false;

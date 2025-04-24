@@ -1,4 +1,5 @@
 import api from './api';
+import dataLogger from '../utils/DataLogger';
 
 const dictionaryService = {
   /**
@@ -6,10 +7,14 @@ const dictionaryService = {
    * @returns {Promise} - Obiekt zawierający wszystkie słowniki
    */
   getDictionaries: async () => {
+    const startTime = Date.now();
     try {
-      console.log('Wywołanie API: /dictionary');
+      dataLogger.apiRequest('GET', '/dictionary', null, null);
+      
       const response = await api.get('/dictionary');
-      console.log('Odpowiedź API słowników:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', '/dictionary', response.status, response.data, duration);
       
       // Sprawdź, czy dane są w oczekiwanym formacie
       const data = response.data || {};
@@ -60,23 +65,28 @@ const dictionaryService = {
         ...item
       }));
       
-      console.log('Sformatowane dane słowników:', { 
-        departments: formattedDepartments.length, 
-        groups: formattedGroups.length,
-        serviceTypes: formattedServiceTypes.length,
-        contractors: formattedContractors.length,
-        costCategories: formattedCostCategories.length
-      });
-      
-      return {
+      const formattedData = {
         departments: formattedDepartments,
         groups: formattedGroups,
         serviceTypes: formattedServiceTypes,
         contractors: formattedContractors,
         costCategories: formattedCostCategories
       };
+      
+      dataLogger.dataFlow('dictionaryService', 'getDictionaries', 
+        {}, 
+        { 
+          departments: formattedDepartments.length, 
+          groups: formattedGroups.length,
+          serviceTypes: formattedServiceTypes.length,
+          contractors: formattedContractors.length,
+          costCategories: formattedCostCategories.length
+        }
+      );
+      
+      return formattedData;
     } catch (error) {
-      console.error('Błąd pobierania słowników:', error);
+      dataLogger.apiError('GET', '/dictionary', error);
       throw new Error(error.response?.data?.message || 'Błąd pobierania słowników');
     }
   },
@@ -87,10 +97,14 @@ const dictionaryService = {
    * @returns {Promise} - Lista elementów słownika
    */
   getDictionaryItems: async (type) => {
+    const startTime = Date.now();
     try {
-      console.log(`Wywołanie API: /dictionary/${type}`);
+      dataLogger.apiRequest('GET', `/dictionary/${type}`, null, null);
+      
       const response = await api.get(`/dictionary/${type}`);
-      console.log(`Odpowiedź API słownika ${type}:`, response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', `/dictionary/${type}`, response.status, response.data, duration);
       
       // Sprawdź, czy dane są w oczekiwanym formacie
       const items = Array.isArray(response.data) ? response.data : [];
@@ -150,14 +164,14 @@ const dictionaryService = {
           }));
       }
       
-      console.log(`Sformatowane dane słownika ${type}:`, { 
-        ilość: formattedItems.length,
-        przykład: formattedItems.length > 0 ? formattedItems[0] : null
-      });
+      dataLogger.dataFlow('dictionaryService', 'getDictionaryItems', 
+        { type }, 
+        { itemsCount: formattedItems.length }
+      );
       
       return formattedItems;
     } catch (error) {
-      console.error(`Błąd pobierania słownika ${type}:`, error);
+      dataLogger.apiError('GET', `/dictionary/${type}`, error, { type });
       throw new Error(error.response?.data?.message || `Błąd pobierania słownika ${type}`);
     }
   },
@@ -169,15 +183,23 @@ const dictionaryService = {
    * @returns {Promise} - Dodany element słownika
    */
   addDictionaryItem: async (type, itemData) => {
+    const startTime = Date.now();
     try {
-      console.log(`Dodawanie nowego elementu do słownika ${type}:`, itemData);
+      dataLogger.apiRequest('POST', `/dictionary/${type}`, null, itemData);
       
       const response = await api.post(`/dictionary/${type}`, itemData);
-      console.log(`Odpowiedź po dodaniu elementu do słownika ${type}:`, response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('POST', `/dictionary/${type}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('dictionaryService', 'addDictionaryItem', 
+        { type, itemData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd dodawania elementu do słownika ${type}:`, error);
+      dataLogger.apiError('POST', `/dictionary/${type}`, error, { type, itemData });
       throw new Error(error.response?.data?.message || `Błąd dodawania elementu do słownika ${type}`);
     }
   },
@@ -190,15 +212,23 @@ const dictionaryService = {
    * @returns {Promise} - Zaktualizowany element słownika
    */
   updateDictionaryItem: async (type, id, itemData) => {
+    const startTime = Date.now();
     try {
-      console.log(`Aktualizacja elementu słownika ${type} o ID ${id}:`, itemData);
+      dataLogger.apiRequest('PUT', `/dictionary/${type}/${id}`, null, itemData);
       
       const response = await api.put(`/dictionary/${type}/${id}`, itemData);
-      console.log(`Odpowiedź po aktualizacji elementu słownika ${type}:`, response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('PUT', `/dictionary/${type}/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('dictionaryService', 'updateDictionaryItem', 
+        { type, id, itemData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd aktualizacji elementu słownika ${type} o ID ${id}:`, error);
+      dataLogger.apiError('PUT', `/dictionary/${type}/${id}`, error, { type, id, itemData });
       throw new Error(error.response?.data?.message || `Błąd aktualizacji elementu słownika ${type}`);
     }
   },
@@ -210,15 +240,23 @@ const dictionaryService = {
    * @returns {Promise} - Komunikat o powodzeniu operacji
    */
   deleteDictionaryItem: async (type, id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Usuwanie elementu słownika ${type} o ID ${id}`);
+      dataLogger.apiRequest('DELETE', `/dictionary/${type}/${id}`, null, null);
       
       const response = await api.delete(`/dictionary/${type}/${id}`);
-      console.log(`Odpowiedź po usunięciu elementu słownika ${type}:`, response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('DELETE', `/dictionary/${type}/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('dictionaryService', 'deleteDictionaryItem', 
+        { type, id }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd usuwania elementu słownika ${type} o ID ${id}:`, error);
+      dataLogger.apiError('DELETE', `/dictionary/${type}/${id}`, error, { type, id });
       throw new Error(error.response?.data?.message || `Błąd usuwania elementu słownika ${type}`);
     }
   }

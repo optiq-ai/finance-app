@@ -1,4 +1,5 @@
 import api from './api';
+import dataLogger from '../utils/DataLogger';
 
 const payrollService = {
   /**
@@ -8,8 +9,9 @@ const payrollService = {
    * @returns {Promise} - Obiekt z danymi wypłat
    */
   getPayroll: async (filters = {}, pagination = { page: 0, pageSize: 10 }) => {
+    const startTime = Date.now();
     try {
-      console.log('Pobieranie danych wypłat z parametrami:', { filters, pagination });
+      dataLogger.apiRequest('GET', '/payroll', { ...filters, ...pagination }, null);
       
       const response = await api.get('/payroll', { 
         params: { 
@@ -19,7 +21,8 @@ const payrollService = {
         } 
       });
       
-      console.log('Otrzymane dane wypłat:', response.data);
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', '/payroll', response.status, response.data, duration);
       
       // Sprawdź, czy dane są w oczekiwanym formacie
       const data = response.data || {};
@@ -34,26 +37,27 @@ const payrollService = {
         employeeName: item.employeeName || '-',
         position: item.position || '-',
         grossAmount: item.grossAmount || 0,
-        taxAmount: item.taxAmount || 0,
         netAmount: item.netAmount || 0,
+        taxAmount: item.taxAmount || 0,
         ...item
       }));
       
-      console.log('Sformatowane dane wypłat:', { 
-        totalItems: data.totalItems || 0, 
-        items: formattedItems.length, 
-        przykład: formattedItems.length > 0 ? formattedItems[0] : null 
-      });
-      
-      return {
-        totalItems: data.totalItems || 0,
+      const formattedData = {
         items: formattedItems,
+        totalItems: data.totalItems || 0,
         page: data.page || pagination.page,
         pageSize: data.pageSize || pagination.pageSize,
         totalPages: data.totalPages || Math.ceil((data.totalItems || 0) / pagination.pageSize)
       };
+      
+      dataLogger.dataFlow('payrollService', 'getPayroll', 
+        { filters, pagination }, 
+        { itemsCount: formattedItems.length, totalItems: formattedData.totalItems }
+      );
+      
+      return formattedData;
     } catch (error) {
-      console.error('Błąd pobierania danych wypłat:', error);
+      dataLogger.apiError('GET', '/payroll', error, { filters, pagination });
       throw new Error(error.response?.data?.message || 'Błąd pobierania danych wypłat');
     }
   },
@@ -64,11 +68,14 @@ const payrollService = {
    * @returns {Promise} - Obiekt ze szczegółami wypłaty
    */
   getPayrollDetails: async (id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Pobieranie szczegółów wypłaty o ID: ${id}`);
+      dataLogger.apiRequest('GET', `/payroll/${id}`, null, null);
       
       const response = await api.get(`/payroll/${id}`);
-      console.log('Otrzymane szczegóły wypłaty:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('GET', `/payroll/${id}`, response.status, response.data, duration);
       
       // Dodanie domyślnych wartości dla pustych pól
       const payroll = response.data || {};
@@ -80,14 +87,19 @@ const payrollService = {
         employeeName: payroll.employeeName || '-',
         position: payroll.position || '-',
         grossAmount: payroll.grossAmount || 0,
-        taxAmount: payroll.taxAmount || 0,
         netAmount: payroll.netAmount || 0,
+        taxAmount: payroll.taxAmount || 0,
         ...payroll
       };
       
+      dataLogger.dataFlow('payrollService', 'getPayrollDetails', 
+        { id }, 
+        { payroll: formattedPayroll }
+      );
+      
       return formattedPayroll;
     } catch (error) {
-      console.error(`Błąd pobierania szczegółów wypłaty o ID ${id}:`, error);
+      dataLogger.apiError('GET', `/payroll/${id}`, error);
       throw new Error(error.response?.data?.message || 'Błąd pobierania szczegółów wypłaty');
     }
   },
@@ -98,15 +110,23 @@ const payrollService = {
    * @returns {Promise} - Obiekt z dodaną wypłatą
    */
   addPayroll: async (payrollData) => {
+    const startTime = Date.now();
     try {
-      console.log('Dodawanie nowej wypłaty:', payrollData);
+      dataLogger.apiRequest('POST', '/payroll', null, payrollData);
       
       const response = await api.post('/payroll', payrollData);
-      console.log('Odpowiedź po dodaniu wypłaty:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('POST', '/payroll', response.status, response.data, duration);
+      
+      dataLogger.dataFlow('payrollService', 'addPayroll', 
+        { payrollData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error('Błąd dodawania wypłaty:', error);
+      dataLogger.apiError('POST', '/payroll', error, { payrollData });
       throw new Error(error.response?.data?.message || 'Błąd dodawania wypłaty');
     }
   },
@@ -118,15 +138,23 @@ const payrollService = {
    * @returns {Promise} - Obiekt z zaktualizowaną wypłatą
    */
   updatePayroll: async (id, payrollData) => {
+    const startTime = Date.now();
     try {
-      console.log(`Aktualizacja wypłaty o ID ${id}:`, payrollData);
+      dataLogger.apiRequest('PUT', `/payroll/${id}`, null, payrollData);
       
       const response = await api.put(`/payroll/${id}`, payrollData);
-      console.log('Odpowiedź po aktualizacji wypłaty:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('PUT', `/payroll/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('payrollService', 'updatePayroll', 
+        { id, payrollData }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd aktualizacji wypłaty o ID ${id}:`, error);
+      dataLogger.apiError('PUT', `/payroll/${id}`, error, { id, payrollData });
       throw new Error(error.response?.data?.message || 'Błąd aktualizacji wypłaty');
     }
   },
@@ -137,15 +165,23 @@ const payrollService = {
    * @returns {Promise} - Komunikat o powodzeniu operacji
    */
   deletePayroll: async (id) => {
+    const startTime = Date.now();
     try {
-      console.log(`Usuwanie wypłaty o ID ${id}`);
+      dataLogger.apiRequest('DELETE', `/payroll/${id}`, null, null);
       
       const response = await api.delete(`/payroll/${id}`);
-      console.log('Odpowiedź po usunięciu wypłaty:', response.data);
+      
+      const duration = Date.now() - startTime;
+      dataLogger.apiResponse('DELETE', `/payroll/${id}`, response.status, response.data, duration);
+      
+      dataLogger.dataFlow('payrollService', 'deletePayroll', 
+        { id }, 
+        { result: response.data }
+      );
       
       return response.data;
     } catch (error) {
-      console.error(`Błąd usuwania wypłaty o ID ${id}:`, error);
+      dataLogger.apiError('DELETE', `/payroll/${id}`, error, { id });
       throw new Error(error.response?.data?.message || 'Błąd usuwania wypłaty');
     }
   }
