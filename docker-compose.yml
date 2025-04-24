@@ -53,6 +53,9 @@ services:
 networks:
   finance-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 volumes:
   postgres_data:

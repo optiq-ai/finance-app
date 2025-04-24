@@ -1,10 +1,9 @@
 import axios from 'axios';
 
-// W środowisku kontenerowym, backend jest dostępny pod nazwą serwisu 'backend'
+// W środowisku kontenerowym, używamy proxy NGINX skonfigurowanego w nginx.conf
 // W środowisku deweloperskim, używamy localhost
-// W środowisku produkcyjnym, używamy zmiennej środowiskowej
-const API_URL = process.env.REACT_APP_API_URL || 
-                (process.env.NODE_ENV === 'production' ? 'http://backend:3001/api' : 'http://localhost:3001/api');
+// W środowisku produkcyjnym, używamy zmiennej środowiskowej lub proxy NGINX
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 console.log('Using API URL:', API_URL);
 
