@@ -15,7 +15,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'db',
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: console.log, // Włączamy logowanie SQL dla wszystkich środowisk
     pool: {
       max: 5,
       min: 0,

@@ -9,8 +9,8 @@ const syncDatabase = async () => {
     await sequelize.authenticate();
     console.log('Połączenie z bazą danych nawiązane pomyślnie.');
     
-    // W środowisku produkcyjnym nie używamy force: true
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    // Zawsze używamy alter: true, aby zapewnić aktualizację schematu bazy danych
+    await sequelize.sync({ alter: true });
     console.log('Modele zsynchronizowane z bazą danych.');
   } catch (error) {
     console.error('Nie udało się połączyć z bazą danych:', error);
