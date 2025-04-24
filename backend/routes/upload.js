@@ -140,6 +140,7 @@ const parseFile = (filePath) => {
       
       console.log(`Odczytano ${data.length} wierszy z pliku Excel`);
       console.log('Przykładowy wiersz:', JSON.stringify(data[0]));
+      console.log('Kolumny w pliku:', Object.keys(data[0]).join(', '));
       return data;
     }
   } catch (err) {
@@ -149,33 +150,35 @@ const parseFile = (filePath) => {
 };
 
 // Funkcje mapujące nazwy kolumn z plików Excel na pola w bazie danych
+// Zaktualizowane na podstawie analizy rzeczywistych plików
 const mapPurchaseFields = (row) => {
   console.log('Mapowanie pól zakupu:', JSON.stringify(row));
   return {
-    date: row['Data zakupu'] || row['Data'] || new Date(),
-    documentNumber: row['Numer dokumentu'] || row['Nr dokumentu'] || `DOC-${Date.now()}`,
+    date: row['Data zakupu'] || row['Data wpływu'] || new Date(),
+    documentNumber: row['Numer dokumentu'] || `DOC-${Date.now()}`,
     description: row['Opis'] || row['Kategoria'] || '',
-    netAmount: parseFloat(row['Netto'] || row['Kwota netto'] || 0),
-    vatAmount: parseFloat(row['VAT'] || row['Kwota VAT'] || 0),
-    grossAmount: parseFloat(row['Brutto'] || row['Kwota brutto'] || 0),
+    netAmount: parseFloat(row['Netto'] || 0),
+    vatAmount: parseFloat(row['VAT'] || 0),
+    grossAmount: parseFloat(row['Brutto'] || 0),
     departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
-    groupId: row['Grupa'] ? String(row['Grupa']).trim() : null,
-    serviceTypeId: row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null,
-    contractorId: row['Kontrahent'] || row['Płatnik'] ? String(row['Kontrahent'] || row['Płatnik']).trim() : null,
-    costCategoryId: row['Kategoria kosztu'] || row['Kategoria'] ? String(row['Kategoria kosztu'] || row['Kategoria']).trim() : null
+    groupId: row['Kolumna2'] ? String(row['Kolumna2']).trim() : null, // Kolumna2 zawiera grupę w pliku Zakup.xlsx
+    serviceTypeId: row['Kolumna3'] ? String(row['Kolumna3']).trim() : null, // Kolumna3 może zawierać rodzaj usługi
+    contractorId: row['Kontrahent'] ? String(row['Kontrahent']).trim() : 
+                 row['Płatnik'] ? String(row['Płatnik']).trim() : null,
+    costCategoryId: row['Kategoria'] ? String(row['Kategoria']).trim() : null
   };
 };
 
 const mapPayrollFields = (row) => {
   console.log('Mapowanie pól wypłaty:', JSON.stringify(row));
-  // Obsługa różnych możliwych nazw kolumn
+  // Zaktualizowane na podstawie analizy rzeczywistego pliku wyplaty.xlsx
   return {
-    date: row['Data'] || row['Data wypłaty'] || new Date(),
-    employeeName: `${row['Nazwisko'] || ''} ${row['Imie'] || row['Imię'] || ''}`.trim() || 'Nieznany',
-    position: row['Tytul_ubezpieczenia'] || row['Tytuł ubezpieczenia'] || row['Stanowisko'] || '',
-    grossAmount: parseFloat(row['Brutto'] || row['Kwota brutto'] || 0),
-    taxAmount: parseFloat(row['Zaliczka_podatku'] || row['Zaliczka podatku'] || row['Podatek'] || 0),
-    netAmount: parseFloat(row['Netto'] || row['Kwota netto'] || 0),
+    date: row['Data'] || new Date(),
+    employeeName: `${row['Nazwisko'] || ''} ${row['Imie'] || ''}`.trim() || 'Nieznany',
+    position: row['Tytul_ubezpieczenia'] ? String(row['Tytul_ubezpieczenia']) : '',
+    grossAmount: parseFloat(row['Brutto'] || 0),
+    taxAmount: parseFloat(row['Zaliczka_podatku'] || 0),
+    netAmount: parseFloat(row['Netto'] || 0),
     departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
     groupId: row['Grupa'] ? String(row['Grupa']).trim() : null
   };
@@ -183,20 +186,20 @@ const mapPayrollFields = (row) => {
 
 const mapSaleFields = (row) => {
   console.log('Mapowanie pól sprzedaży:', JSON.stringify(row));
-  // Obsługa różnych możliwych nazw kolumn
+  // Zaktualizowane na podstawie analizy rzeczywistego pliku Sprzedaz.xlsx
   return {
-    date: row['Data usługi'] || row['Data wyst.'] || row['Data'] || row['Data sprzedaży'] || new Date(),
-    documentNumber: row['Numer dokumentu'] || row['Nr dokumentu'] || `SALE-${Date.now()}`,
-    description: row['Rodzaj usługi'] || row['Opis'] || '',
-    netAmount: parseFloat(row['Netto'] || row['Kwota netto'] || 0),
-    vatAmount: parseFloat(row['VAT'] || row['Kwota VAT'] || 0),
-    grossAmount: parseFloat(row['Brutto'] || row['Kwota brutto'] || row['Netto'] || 0),
+    date: row['Data usługi'] || row['Data wyst.'] || new Date(),
+    documentNumber: row['Numer dokumentu'] || `SALE-${Date.now()}`,
+    description: row['Rodzaj usługi'] || '',
+    netAmount: parseFloat(row['Netto'] || 0),
+    vatAmount: 0, // Brak kolumny VAT w pliku Sprzedaz.xlsx, ustawiamy na 0
+    grossAmount: parseFloat(row['Netto'] || 0), // Brak kolumny Brutto, używamy Netto
     departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
     groupId: row['Grupa'] ? String(row['Grupa']).trim() : null,
     serviceTypeId: row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null,
-    customer: row['Kontrahent'] || row['Klient'] || row['Nabywca'] ? String(row['Kontrahent'] || row['Klient'] || row['Nabywca']).trim() : '',
-    quantity: parseInt(row['Ilość'] || row['Ilość'] || 1),
-    averageValue: parseFloat(row['ŚREDNIA'] || row['Średnia'] || 0)
+    customer: row['Kontrahent'] ? String(row['Kontrahent']).trim() : '',
+    quantity: parseInt(row['Ilość'] || 1),
+    averageValue: parseFloat(row['ŚREDNIA'] || 0)
   };
 };
 
@@ -254,6 +257,10 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
     let data;
     try {
       data = parseFile(req.file.path);
+      console.log(`Odczytano ${data.length} wierszy z pliku`);
+      if (data.length === 0) {
+        return res.status(400).json({ message: 'Plik nie zawiera danych' });
+      }
     } catch (err) {
       console.error('Błąd podczas odczytu pliku:', err);
       return res.status(400).json({ message: `Błąd podczas odczytu pliku: ${err.message}` });
