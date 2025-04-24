@@ -16,15 +16,18 @@ import {
   MenuItem,
   Button,
   CircularProgress,
-  Divider
+  Divider,
+  Alert
 } from '@mui/material';
 import {
   fetchPayrollStart,
   fetchPayrollSuccess,
   fetchPayrollFailure,
   updateFilters,
-  updatePagination
+  updatePagination,
+  resetFilters
 } from '../../redux/slices/payrollSlice';
+import { resetDataRefreshNeeded } from '../../redux/slices/uploadSlice';
 import payrollService from '../../services/payrollService';
 import { formatDate } from '../../utils/dateUtils';
 import { formatCurrency } from '../../utils/numberUtils';
@@ -33,20 +36,42 @@ const PayrollPage = () => {
   const dispatch = useDispatch();
   const { payroll, filteredPayroll, loading, error, filters, pagination } = useSelector((state) => state.payroll);
   const { departments = [], groups = [], serviceTypes = [] } = useSelector((state) => state.dictionary || {});
+  const { dataRefreshNeeded, lastUploadType } = useSelector((state) => state.upload);
+  const [refreshAlert, setRefreshAlert] = useState(false);
   
-  useEffect(() => {
-    const fetchPayrollData = async () => {
-      try {
-        dispatch(fetchPayrollStart());
-        const data = await payrollService.getPayroll(filters, pagination);
-        dispatch(fetchPayrollSuccess(data));
-      } catch (err) {
-        dispatch(fetchPayrollFailure(err.message));
+  // Pobieranie danych wypłat
+  const fetchPayrollData = async () => {
+    try {
+      console.log('Pobieranie danych wypłat z filtrami:', filters);
+      dispatch(fetchPayrollStart());
+      const data = await payrollService.getPayroll(filters, pagination);
+      console.log('Otrzymane dane wypłat:', data);
+      dispatch(fetchPayrollSuccess(data));
+      
+      // Jeśli odświeżenie było spowodowane nowym uploadem, pokazujemy alert
+      if (dataRefreshNeeded && (lastUploadType === 'payroll' || lastUploadType === null)) {
+        setRefreshAlert(true);
+        setTimeout(() => setRefreshAlert(false), 5000); // Ukryj alert po 5 sekundach
       }
-    };
+    } catch (err) {
+      console.error('Błąd podczas pobierania danych wypłat:', err);
+      dispatch(fetchPayrollFailure(err.message));
+    }
+  };
 
+  // Efekt do pobierania danych przy zmianie filtrów lub paginacji
+  useEffect(() => {
     fetchPayrollData();
-  }, [dispatch, filters, pagination?.page, pagination?.pageSize]);
+  }, [dispatch, filters, pagination.page, pagination.pageSize]);
+
+  // Efekt do odświeżania danych po uploadzie
+  useEffect(() => {
+    if (dataRefreshNeeded && (lastUploadType === 'payroll' || lastUploadType === null)) {
+      console.log('Odświeżanie danych wypłat po uploadzie...');
+      fetchPayrollData();
+      dispatch(resetDataRefreshNeeded());
+    }
+  }, [dataRefreshNeeded, lastUploadType, dispatch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -61,7 +86,15 @@ const PayrollPage = () => {
     dispatch(updatePagination({ pageSize: parseInt(event.target.value, 10), page: 0 }));
   };
 
-  if (loading && (!payroll || payroll.length === 0)) {
+  const handleRefresh = () => {
+    fetchPayrollData();
+  };
+
+  const handleResetFilters = () => {
+    dispatch(resetFilters());
+  };
+
+  if (loading && (!filteredPayroll || filteredPayroll.length === 0)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -79,11 +112,25 @@ const PayrollPage = () => {
     );
   }
 
+  // Sprawdź, czy mamy dane do wyświetlenia
+  const hasData = filteredPayroll && filteredPayroll.length > 0;
+  console.log('Dane do wyświetlenia w tabeli wypłat:', { 
+    hasData, 
+    ilośćDanych: filteredPayroll?.length || 0,
+    przykład: hasData ? filteredPayroll[0] : null 
+  });
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Wypłaty
       </Typography>
+      
+      {refreshAlert && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setRefreshAlert(false)}>
+          Dane zostały zaktualizowane po przesłaniu nowego pliku.
+        </Alert>
+      )}
       
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -189,10 +236,10 @@ const PayrollPage = () => {
             </TextField>
           </Grid>
           <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Button variant="contained" color="primary" sx={{ mr: 1 }}>
+            <Button variant="contained" color="primary" onClick={handleRefresh} sx={{ mr: 1 }}>
               Filtruj
             </Button>
-            <Button variant="outlined">
+            <Button variant="outlined" onClick={handleResetFilters}>
               Resetuj
             </Button>
           </Grid>
@@ -208,34 +255,30 @@ const PayrollPage = () => {
                 <TableCell>Data</TableCell>
                 <TableCell>Oddział</TableCell>
                 <TableCell>Grupa</TableCell>
-                <TableCell>Rodzaj usługi</TableCell>
                 <TableCell>Pracownik</TableCell>
-                <TableCell>Kategoria</TableCell>
+                <TableCell>Stanowisko</TableCell>
                 <TableCell align="right">Brutto</TableCell>
-                <TableCell align="right">Składki</TableCell>
                 <TableCell align="right">Podatek</TableCell>
                 <TableCell align="right">Netto</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredPayroll && filteredPayroll.length > 0 ? (
+              {hasData ? (
                 filteredPayroll.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{formatDate(item.date)}</TableCell>
                     <TableCell>{item.department || '-'}</TableCell>
                     <TableCell>{item.group || '-'}</TableCell>
-                    <TableCell>{item.serviceType || '-'}</TableCell>
-                    <TableCell>{item.employee || '-'}</TableCell>
-                    <TableCell>{item.category || '-'}</TableCell>
+                    <TableCell>{item.employeeName || '-'}</TableCell>
+                    <TableCell>{item.position || '-'}</TableCell>
                     <TableCell align="right">{formatCurrency(item.grossAmount)}</TableCell>
-                    <TableCell align="right">{formatCurrency(item.contributions)}</TableCell>
-                    <TableCell align="right">{formatCurrency(item.tax)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.taxAmount)}</TableCell>
                     <TableCell align="right">{formatCurrency(item.netAmount)}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
+                  <TableCell colSpan={8} align="center">
                     Brak danych do wyświetlenia
                   </TableCell>
                 </TableRow>

@@ -16,15 +16,18 @@ import {
   MenuItem,
   Button,
   CircularProgress,
-  Divider
+  Divider,
+  Alert
 } from '@mui/material';
 import {
   fetchSalesStart,
   fetchSalesSuccess,
   fetchSalesFailure,
   updateFilters,
-  updatePagination
+  updatePagination,
+  resetFilters
 } from '../../redux/slices/salesSlice';
+import { resetDataRefreshNeeded } from '../../redux/slices/uploadSlice';
 import salesService from '../../services/salesService';
 import { formatDate } from '../../utils/dateUtils';
 import { formatCurrency, formatNumber } from '../../utils/numberUtils';
@@ -32,21 +35,43 @@ import { formatCurrency, formatNumber } from '../../utils/numberUtils';
 const SalesPage = () => {
   const dispatch = useDispatch();
   const { sales, filteredSales, loading, error, filters, pagination } = useSelector((state) => state.sales);
-  const { departments = [], groups = [], serviceTypes = [] } = useSelector((state) => state.dictionary || {});
+  const { departments = [], groups = [], serviceTypes = [], contractors = [] } = useSelector((state) => state.dictionary || {});
+  const { dataRefreshNeeded, lastUploadType } = useSelector((state) => state.upload);
+  const [refreshAlert, setRefreshAlert] = useState(false);
   
-  useEffect(() => {
-    const fetchSalesData = async () => {
-      try {
-        dispatch(fetchSalesStart());
-        const data = await salesService.getSales(filters, pagination);
-        dispatch(fetchSalesSuccess(data));
-      } catch (err) {
-        dispatch(fetchSalesFailure(err.message));
+  // Pobieranie danych sprzedaży
+  const fetchSalesData = async () => {
+    try {
+      console.log('Pobieranie danych sprzedaży z filtrami:', filters);
+      dispatch(fetchSalesStart());
+      const data = await salesService.getSales(filters, pagination);
+      console.log('Otrzymane dane sprzedaży:', data);
+      dispatch(fetchSalesSuccess(data));
+      
+      // Jeśli odświeżenie było spowodowane nowym uploadem, pokazujemy alert
+      if (dataRefreshNeeded && (lastUploadType === 'sale' || lastUploadType === null)) {
+        setRefreshAlert(true);
+        setTimeout(() => setRefreshAlert(false), 5000); // Ukryj alert po 5 sekundach
       }
-    };
+    } catch (err) {
+      console.error('Błąd podczas pobierania danych sprzedaży:', err);
+      dispatch(fetchSalesFailure(err.message));
+    }
+  };
 
+  // Efekt do pobierania danych przy zmianie filtrów lub paginacji
+  useEffect(() => {
     fetchSalesData();
-  }, [dispatch, filters, pagination?.page, pagination?.pageSize]);
+  }, [dispatch, filters, pagination.page, pagination.pageSize]);
+
+  // Efekt do odświeżania danych po uploadzie
+  useEffect(() => {
+    if (dataRefreshNeeded && (lastUploadType === 'sale' || lastUploadType === null)) {
+      console.log('Odświeżanie danych sprzedaży po uploadzie...');
+      fetchSalesData();
+      dispatch(resetDataRefreshNeeded());
+    }
+  }, [dataRefreshNeeded, lastUploadType, dispatch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -61,7 +86,15 @@ const SalesPage = () => {
     dispatch(updatePagination({ pageSize: parseInt(event.target.value, 10), page: 0 }));
   };
 
-  if (loading && (!sales || sales.length === 0)) {
+  const handleRefresh = () => {
+    fetchSalesData();
+  };
+
+  const handleResetFilters = () => {
+    dispatch(resetFilters());
+  };
+
+  if (loading && (!filteredSales || filteredSales.length === 0)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -79,11 +112,25 @@ const SalesPage = () => {
     );
   }
 
+  // Sprawdź, czy mamy dane do wyświetlenia
+  const hasData = filteredSales && filteredSales.length > 0;
+  console.log('Dane do wyświetlenia w tabeli sprzedaży:', { 
+    hasData, 
+    ilośćDanych: filteredSales?.length || 0,
+    przykład: hasData ? filteredSales[0] : null 
+  });
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Sprzedaż
       </Typography>
+      
+      {refreshAlert && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setRefreshAlert(false)}>
+          Dane zostały zaktualizowane po przesłaniu nowego pliku.
+        </Alert>
+      )}
       
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -167,32 +214,25 @@ const SalesPage = () => {
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="Klient"
-              name="customer"
-              value={filters?.customer || ''}
-              onChange={handleFilterChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
               select
-              label="Kategoria"
-              name="category"
-              value={filters?.category || ''}
+              label="Kontrahent"
+              name="contractor"
+              value={filters?.contractor || ''}
               onChange={handleFilterChange}
             >
-              <MenuItem value="">Wszystkie</MenuItem>
-              <MenuItem value="produkty">Produkty</MenuItem>
-              <MenuItem value="uslugi">Usługi</MenuItem>
-              <MenuItem value="inne">Inne</MenuItem>
+              <MenuItem value="">Wszyscy</MenuItem>
+              {Array.isArray(contractors) && contractors.map((contractor) => (
+                <MenuItem key={contractor.id} value={contractor.id}>
+                  {contractor.name}
+                </MenuItem>
+              ))}
             </TextField>
           </Grid>
           <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Button variant="contained" color="primary" sx={{ mr: 1 }}>
+            <Button variant="contained" color="primary" onClick={handleRefresh} sx={{ mr: 1 }}>
               Filtruj
             </Button>
-            <Button variant="outlined">
+            <Button variant="outlined" onClick={handleResetFilters}>
               Resetuj
             </Button>
           </Grid>
@@ -209,26 +249,26 @@ const SalesPage = () => {
                 <TableCell>Oddział</TableCell>
                 <TableCell>Grupa</TableCell>
                 <TableCell>Rodzaj usługi</TableCell>
-                <TableCell>Klient</TableCell>
-                <TableCell>Kategoria</TableCell>
+                <TableCell>Kontrahent</TableCell>
                 <TableCell align="right">Ilość</TableCell>
                 <TableCell align="right">Kwota netto</TableCell>
-                <TableCell align="right">Średnia</TableCell>
+                <TableCell align="right">VAT</TableCell>
+                <TableCell align="right">Kwota brutto</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredSales && filteredSales.length > 0 ? (
+              {hasData ? (
                 filteredSales.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{formatDate(item.date)}</TableCell>
                     <TableCell>{item.department || '-'}</TableCell>
                     <TableCell>{item.group || '-'}</TableCell>
                     <TableCell>{item.serviceType || '-'}</TableCell>
-                    <TableCell>{item.customer || '-'}</TableCell>
-                    <TableCell>{item.category || '-'}</TableCell>
+                    <TableCell>{item.contractor || '-'}</TableCell>
                     <TableCell align="right">{formatNumber(item.quantity, 0, '0')}</TableCell>
                     <TableCell align="right">{formatCurrency(item.netAmount)}</TableCell>
-                    <TableCell align="right">{formatCurrency(item.averageValue)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.vatAmount)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.grossAmount)}</TableCell>
                   </TableRow>
                 ))
               ) : (

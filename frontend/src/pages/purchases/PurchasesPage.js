@@ -41,8 +41,10 @@ const PurchasesPage = () => {
   // Pobieranie danych zakupów
   const fetchPurchases = async () => {
     try {
+      console.log('Pobieranie danych zakupów z filtrami:', filters);
       dispatch(fetchPurchasesStart());
       const data = await purchasesService.getPurchases(filters, pagination);
+      console.log('Otrzymane dane zakupów:', data);
       dispatch(fetchPurchasesSuccess(data));
       
       // Jeśli odświeżenie było spowodowane nowym uploadem, pokazujemy alert
@@ -51,6 +53,7 @@ const PurchasesPage = () => {
         setTimeout(() => setRefreshAlert(false), 5000); // Ukryj alert po 5 sekundach
       }
     } catch (err) {
+      console.error('Błąd podczas pobierania danych zakupów:', err);
       dispatch(fetchPurchasesFailure(err.message));
     }
   };
@@ -98,7 +101,7 @@ const PurchasesPage = () => {
     }));
   };
 
-  if (loading && (!purchases || purchases.length === 0)) {
+  if (loading && (!filteredPurchases || filteredPurchases.length === 0)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -115,6 +118,14 @@ const PurchasesPage = () => {
       </Box>
     );
   }
+
+  // Sprawdź, czy mamy dane do wyświetlenia
+  const hasData = filteredPurchases && filteredPurchases.length > 0;
+  console.log('Dane do wyświetlenia w tabeli:', { 
+    hasData, 
+    ilośćDanych: filteredPurchases?.length || 0,
+    przykład: hasData ? filteredPurchases[0] : null 
+  });
 
   return (
     <Box>
@@ -270,7 +281,7 @@ const PurchasesPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredPurchases && filteredPurchases.length > 0 ? (
+              {hasData ? (
                 filteredPurchases.map((purchase) => (
                   <TableRow key={purchase.id}>
                     <TableCell>{formatDate(purchase.date)}</TableCell>

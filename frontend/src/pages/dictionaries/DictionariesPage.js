@@ -20,12 +20,18 @@ import {
   DialogActions,
   TextField,
   IconButton,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import {
   fetchDictionariesStart,
@@ -41,11 +47,13 @@ import {
   deleteItemSuccess,
   deleteItemFailure
 } from '../../redux/slices/dictionarySlice';
+import { resetDataRefreshNeeded } from '../../redux/slices/uploadSlice';
 import dictionaryService from '../../services/dictionaryService';
 
 const DictionariesPage = () => {
   const dispatch = useDispatch();
   const { departments, groups, serviceTypes, contractors, costCategories, loading, error } = useSelector((state) => state.dictionary);
+  const { dataRefreshNeeded } = useSelector((state) => state.upload);
   const [tabValue, setTabValue] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -53,22 +61,43 @@ const DictionariesPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    description: ''
+    description: '',
+    departmentId: '',
+    groupId: ''
   });
+  const [refreshAlert, setRefreshAlert] = useState(false);
   
-  useEffect(() => {
-    const fetchDictionaries = async () => {
-      try {
-        dispatch(fetchDictionariesStart());
-        const data = await dictionaryService.getDictionaries();
-        dispatch(fetchDictionariesSuccess(data));
-      } catch (err) {
-        dispatch(fetchDictionariesFailure(err.message));
+  const fetchDictionaries = async () => {
+    try {
+      console.log('Pobieranie danych słowników');
+      dispatch(fetchDictionariesStart());
+      const data = await dictionaryService.getDictionaries();
+      console.log('Otrzymane dane słowników:', data);
+      dispatch(fetchDictionariesSuccess(data));
+      
+      // Jeśli odświeżenie było spowodowane nowym uploadem, pokazujemy alert
+      if (dataRefreshNeeded) {
+        setRefreshAlert(true);
+        setTimeout(() => setRefreshAlert(false), 5000); // Ukryj alert po 5 sekundach
       }
-    };
+    } catch (err) {
+      console.error('Błąd podczas pobierania danych słowników:', err);
+      dispatch(fetchDictionariesFailure(err.message));
+    }
+  };
 
+  useEffect(() => {
     fetchDictionaries();
   }, [dispatch]);
+
+  // Efekt do odświeżania danych po uploadzie
+  useEffect(() => {
+    if (dataRefreshNeeded) {
+      console.log('Odświeżanie danych słowników po uploadzie...');
+      fetchDictionaries();
+      dispatch(resetDataRefreshNeeded());
+    }
+  }, [dataRefreshNeeded, dispatch]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -79,9 +108,11 @@ const DictionariesPage = () => {
       setEditMode(true);
       setCurrentItem(item);
       setFormData({
-        name: item.name,
+        name: item.name || '',
         code: item.code || '',
-        description: item.description || ''
+        description: item.description || '',
+        departmentId: item.departmentId || '',
+        groupId: item.groupId || ''
       });
     } else {
       setEditMode(false);
@@ -89,7 +120,9 @@ const DictionariesPage = () => {
       setFormData({
         name: '',
         code: '',
-        description: ''
+        description: '',
+        departmentId: '',
+        groupId: ''
       });
     }
     setDialogOpen(true);
@@ -112,24 +145,30 @@ const DictionariesPage = () => {
     
     if (editMode) {
       try {
+        console.log(`Aktualizacja elementu słownika ${dictionaryType}:`, formData);
         dispatch(updateItemStart());
         const updatedItem = await dictionaryService.updateDictionaryItem(
           dictionaryType,
           currentItem.id,
           formData
         );
+        console.log(`Zaktualizowany element słownika ${dictionaryType}:`, updatedItem);
         dispatch(updateItemSuccess({ type: dictionaryType, item: updatedItem }));
         handleCloseDialog();
       } catch (err) {
+        console.error(`Błąd aktualizacji elementu słownika ${dictionaryType}:`, err);
         dispatch(updateItemFailure(err.message));
       }
     } else {
       try {
+        console.log(`Dodawanie nowego elementu do słownika ${dictionaryType}:`, formData);
         dispatch(addItemStart());
         const newItem = await dictionaryService.addDictionaryItem(dictionaryType, formData);
+        console.log(`Dodany element do słownika ${dictionaryType}:`, newItem);
         dispatch(addItemSuccess({ type: dictionaryType, item: newItem }));
         handleCloseDialog();
       } catch (err) {
+        console.error(`Błąd dodawania elementu do słownika ${dictionaryType}:`, err);
         dispatch(addItemFailure(err.message));
       }
     }
@@ -140,13 +179,20 @@ const DictionariesPage = () => {
       const dictionaryType = getDictionaryTypeByTabValue();
       
       try {
+        console.log(`Usuwanie elementu słownika ${dictionaryType} o ID ${item.id}`);
         dispatch(deleteItemStart());
         await dictionaryService.deleteDictionaryItem(dictionaryType, item.id);
+        console.log(`Usunięto element słownika ${dictionaryType} o ID ${item.id}`);
         dispatch(deleteItemSuccess({ type: dictionaryType, id: item.id }));
       } catch (err) {
+        console.error(`Błąd usuwania elementu słownika ${dictionaryType} o ID ${item.id}:`, err);
         dispatch(deleteItemFailure(err.message));
       }
     }
+  };
+  
+  const handleRefresh = () => {
+    fetchDictionaries();
   };
   
   const getDictionaryTypeByTabValue = () => {
@@ -169,21 +215,31 @@ const DictionariesPage = () => {
   const getCurrentDictionaryData = () => {
     switch (tabValue) {
       case 0:
-        return departments;
+        return Array.isArray(departments) ? departments : [];
       case 1:
-        return groups;
+        return Array.isArray(groups) ? groups : [];
       case 2:
-        return serviceTypes;
+        return Array.isArray(serviceTypes) ? serviceTypes : [];
       case 3:
-        return contractors;
+        return Array.isArray(contractors) ? contractors : [];
       case 4:
-        return costCategories;
+        return Array.isArray(costCategories) ? costCategories : [];
       default:
         return [];
     }
   };
   
-  if (loading && departments.length === 0) {
+  // Sprawdź, czy mamy dane do wyświetlenia
+  const currentData = getCurrentDictionaryData();
+  const hasData = currentData && currentData.length > 0;
+  console.log('Dane do wyświetlenia w tabeli słowników:', { 
+    typ: getDictionaryTypeByTabValue(),
+    hasData, 
+    ilośćDanych: currentData?.length || 0,
+    przykład: hasData ? currentData[0] : null 
+  });
+  
+  if (loading && (!departments || departments.length === 0)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -206,6 +262,12 @@ const DictionariesPage = () => {
       <Typography variant="h4" gutterBottom>
         Słowniki
       </Typography>
+      
+      {refreshAlert && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setRefreshAlert(false)}>
+          Dane zostały zaktualizowane po przesłaniu nowego pliku.
+        </Alert>
+      )}
       
       <Paper sx={{ mb: 3 }}>
         <Tabs
@@ -232,14 +294,25 @@ const DictionariesPage = () => {
             {tabValue === 3 && 'Lista kontrahentów'}
             {tabValue === 4 && 'Lista kategorii kosztów'}
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            Dodaj
-          </Button>
+          <Box>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<RefreshIcon />}
+              onClick={handleRefresh}
+              sx={{ mr: 1 }}
+            >
+              Odśwież
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+            >
+              Dodaj
+            </Button>
+          </Box>
         </Box>
         
         <TableContainer>
@@ -247,16 +320,22 @@ const DictionariesPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Nazwa</TableCell>
+                {tabValue === 1 && <TableCell>Oddział</TableCell>}
+                {tabValue === 2 && <TableCell>Grupa</TableCell>}
+                {tabValue === 3 && <TableCell>NIP</TableCell>}
                 <TableCell>Kod</TableCell>
                 <TableCell>Opis</TableCell>
                 <TableCell align="right">Akcje</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {getCurrentDictionaryData().length > 0 ? (
-                getCurrentDictionaryData().map((item) => (
+              {hasData ? (
+                currentData.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.name}</TableCell>
+                    <TableCell>{item.name || '-'}</TableCell>
+                    {tabValue === 1 && <TableCell>{item.departmentName || '-'}</TableCell>}
+                    {tabValue === 2 && <TableCell>{item.groupName || '-'}</TableCell>}
+                    {tabValue === 3 && <TableCell>{item.nip || '-'}</TableCell>}
                     <TableCell>{item.code || '-'}</TableCell>
                     <TableCell>{item.description || '-'}</TableCell>
                     <TableCell align="right">
@@ -271,7 +350,7 @@ const DictionariesPage = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">
+                  <TableCell colSpan={tabValue === 1 || tabValue === 2 || tabValue === 3 ? 5 : 4} align="center">
                     Brak danych do wyświetlenia
                   </TableCell>
                 </TableRow>
@@ -297,7 +376,62 @@ const DictionariesPage = () => {
             value={formData.name}
             onChange={handleInputChange}
             required
+            sx={{ mb: 2 }}
           />
+          
+          {tabValue === 1 && (
+            <FormControl fullWidth margin="dense" sx={{ mb: 2 }}>
+              <InputLabel id="department-label">Oddział</InputLabel>
+              <Select
+                labelId="department-label"
+                name="departmentId"
+                value={formData.departmentId}
+                label="Oddział"
+                onChange={handleInputChange}
+              >
+                <MenuItem value="">Wybierz oddział</MenuItem>
+                {Array.isArray(departments) && departments.map((dept) => (
+                  <MenuItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          
+          {tabValue === 2 && (
+            <FormControl fullWidth margin="dense" sx={{ mb: 2 }}>
+              <InputLabel id="group-label">Grupa</InputLabel>
+              <Select
+                labelId="group-label"
+                name="groupId"
+                value={formData.groupId}
+                label="Grupa"
+                onChange={handleInputChange}
+              >
+                <MenuItem value="">Wybierz grupę</MenuItem>
+                {Array.isArray(groups) && groups.map((group) => (
+                  <MenuItem key={group.id} value={group.id}>
+                    {group.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          
+          {tabValue === 3 && (
+            <TextField
+              margin="dense"
+              name="nip"
+              label="NIP"
+              type="text"
+              fullWidth
+              value={formData.nip || ''}
+              onChange={handleInputChange}
+              sx={{ mb: 2 }}
+            />
+          )}
+          
           <TextField
             margin="dense"
             name="code"
@@ -306,7 +440,9 @@ const DictionariesPage = () => {
             fullWidth
             value={formData.code}
             onChange={handleInputChange}
+            sx={{ mb: 2 }}
           />
+          
           <TextField
             margin="dense"
             name="description"
