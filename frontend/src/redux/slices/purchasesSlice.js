@@ -3,22 +3,30 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   purchases: [],
   filteredPurchases: [],
+  filterOptions: {
+    departments: [],
+    groups: [],
+    serviceTypes: [],
+    contractors: [],
+    costCategories: []
+  },
   currentPurchase: null,
   loading: false,
   error: null,
   filters: {
-    dateFrom: null,
-    dateTo: null,
-    department: null,
-    group: null,
-    serviceType: null,
-    contractor: null,
-    costCategory: null
+    dateFrom: '',
+    dateTo: '',
+    department: '',
+    group: '',
+    serviceType: '',
+    contractor: '',
+    costCategory: ''
   },
   pagination: {
     page: 0,
     pageSize: 25,
-    totalItems: 0
+    totalItems: 0,
+    totalPages: 0
   }
 };
 
@@ -31,9 +39,18 @@ const purchasesSlice = createSlice({
       state.error = null;
     },
     fetchPurchasesSuccess: (state, action) => {
-      state.purchases = action.payload.purchases;
-      state.filteredPurchases = action.payload.purchases;
-      state.pagination.totalItems = action.payload.totalItems;
+      state.purchases = action.payload.items || [];
+      state.filteredPurchases = action.payload.items || [];
+      state.pagination.totalItems = action.payload.totalItems || 0;
+      state.pagination.totalPages = action.payload.totalPages || 0;
+      state.pagination.page = action.payload.page || 0;
+      state.pagination.pageSize = action.payload.pageSize || 25;
+      
+      // Aktualizacja opcji filtrów, jeśli są dostępne
+      if (action.payload.filterOptions) {
+        state.filterOptions = action.payload.filterOptions;
+      }
+      
       state.loading = false;
     },
     fetchPurchasesFailure: (state, action) => {
@@ -45,9 +62,13 @@ const purchasesSlice = createSlice({
     },
     updateFilters: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
+      // Resetowanie strony przy zmianie filtrów
+      state.pagination.page = 0;
     },
     resetFilters: (state) => {
       state.filters = initialState.filters;
+      // Resetowanie strony przy resetowaniu filtrów
+      state.pagination.page = 0;
     },
     updatePagination: (state, action) => {
       state.pagination = { ...state.pagination, ...action.payload };

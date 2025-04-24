@@ -3,22 +3,28 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   sales: [],
   filteredSales: [],
+  filterOptions: {
+    departments: [],
+    groups: [],
+    serviceTypes: [],
+    customers: []
+  },
   currentSale: null,
   loading: false,
   error: null,
   filters: {
-    dateFrom: null,
-    dateTo: null,
-    department: null,
-    group: null,
-    serviceType: null,
-    customer: null,
-    category: null
+    dateFrom: '',
+    dateTo: '',
+    department: '',
+    group: '',
+    serviceType: '',
+    customer: ''
   },
   pagination: {
     page: 0,
     pageSize: 25,
-    totalItems: 0
+    totalItems: 0,
+    totalPages: 0
   }
 };
 
@@ -31,9 +37,18 @@ const salesSlice = createSlice({
       state.error = null;
     },
     fetchSalesSuccess: (state, action) => {
-      state.sales = action.payload.sales;
-      state.filteredSales = action.payload.sales;
-      state.pagination.totalItems = action.payload.totalItems;
+      state.sales = action.payload.items || [];
+      state.filteredSales = action.payload.items || [];
+      state.pagination.totalItems = action.payload.totalItems || 0;
+      state.pagination.totalPages = action.payload.totalPages || 0;
+      state.pagination.page = action.payload.page || 0;
+      state.pagination.pageSize = action.payload.pageSize || 25;
+      
+      // Aktualizacja opcji filtrów, jeśli są dostępne
+      if (action.payload.filterOptions) {
+        state.filterOptions = action.payload.filterOptions;
+      }
+      
       state.loading = false;
     },
     fetchSalesFailure: (state, action) => {
@@ -45,9 +60,13 @@ const salesSlice = createSlice({
     },
     updateFilters: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
+      // Resetowanie strony przy zmianie filtrów
+      state.pagination.page = 0;
     },
     resetFilters: (state) => {
       state.filters = initialState.filters;
+      // Resetowanie strony przy resetowaniu filtrów
+      state.pagination.page = 0;
     },
     updatePagination: (state, action) => {
       state.pagination = { ...state.pagination, ...action.payload };

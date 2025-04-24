@@ -147,6 +147,56 @@ const parseFile = (filePath) => {
   }
 };
 
+// Funkcje mapujące nazwy kolumn z plików Excel na pola w bazie danych
+const mapPurchaseFields = (row) => {
+  console.log('Mapowanie pól zakupu:', JSON.stringify(row));
+  return {
+    date: row['Data zakupu'] || row['Data'] || new Date(),
+    documentNumber: row['Numer dokumentu'] || row['Nr dokumentu'] || `DOC-${Date.now()}`,
+    description: row['Opis'] || row['Kategoria'] || '',
+    netAmount: parseFloat(row['Netto'] || row['Kwota netto'] || 0),
+    vatAmount: parseFloat(row['VAT'] || row['Kwota VAT'] || 0),
+    grossAmount: parseFloat(row['Brutto'] || row['Kwota brutto'] || 0),
+    departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
+    groupId: row['Grupa'] ? String(row['Grupa']).trim() : null,
+    serviceTypeId: row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null,
+    contractorId: row['Kontrahent'] || row['Płatnik'] ? String(row['Kontrahent'] || row['Płatnik']).trim() : null,
+    costCategoryId: row['Kategoria kosztu'] || row['Kategoria'] ? String(row['Kategoria kosztu'] || row['Kategoria']).trim() : null
+  };
+};
+
+const mapPayrollFields = (row) => {
+  console.log('Mapowanie pól wypłaty:', JSON.stringify(row));
+  return {
+    date: row['Data'] || new Date(),
+    employeeName: `${row['Nazwisko'] || ''} ${row['Imie'] || ''}`.trim() || 'Nieznany',
+    position: row['Tytul_ubezpieczenia'] ? String(row['Tytul_ubezpieczenia']) : '',
+    grossAmount: parseFloat(row['Brutto'] || 0),
+    taxAmount: parseFloat(row['Zaliczka_podatku'] || 0),
+    netAmount: parseFloat(row['Netto'] || 0),
+    departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
+    groupId: row['Grupa'] ? String(row['Grupa']).trim() : null
+  };
+};
+
+const mapSaleFields = (row) => {
+  console.log('Mapowanie pól sprzedaży:', JSON.stringify(row));
+  return {
+    date: row['Data usługi'] || row['Data wyst.'] || new Date(),
+    documentNumber: row['Numer dokumentu'] || `SALE-${Date.now()}`,
+    description: row['Rodzaj usługi'] || '',
+    netAmount: parseFloat(row['Netto'] || 0),
+    vatAmount: 0, // Brak informacji o VAT w pliku sprzedaży
+    grossAmount: parseFloat(row['Netto'] || 0), // Brak informacji o kwocie brutto, używamy netto
+    departmentId: row['Oddział'] ? String(row['Oddział']).trim() : null,
+    groupId: row['Grupa'] ? String(row['Grupa']).trim() : null,
+    serviceTypeId: row['Rodzaj usługi'] ? String(row['Rodzaj usługi']).trim() : null,
+    customer: row['Kontrahent'] ? String(row['Kontrahent']).trim() : '',
+    quantity: parseInt(row['Ilość'] || 1),
+    averageValue: parseFloat(row['ŚREDNIA'] || 0)
+  };
+};
+
 // Implementacja trybu testowego z danymi mock
 const MOCK_MODE = false; // Ustaw na true, aby włączyć tryb testowy
 
@@ -234,21 +284,15 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       console.log('Przetwarzanie danych zakupów...');
       for (const row of data) {
         try {
-          console.log('Przetwarzanie wiersza zakupu:', JSON.stringify(row));
-          await Purchase.create({
-            date: row.date ? new Date(row.date) : new Date(),
-            documentNumber: row.documentNumber || `DOC-${Date.now()}`,
-            description: row.description || '',
-            netAmount: parseFloat(row.netAmount) || 0,
-            vatAmount: parseFloat(row.vatAmount) || 0,
-            grossAmount: parseFloat(row.grossAmount) || 0,
-            departmentId: row.departmentId || null,
-            groupId: row.groupId || null,
-            serviceTypeId: row.serviceTypeId || null,
-            contractorId: row.contractorId || null,
-            costCategoryId: row.costCategoryId || null,
+          const mappedData = mapPurchaseFields(row);
+          console.log('Zmapowane dane zakupu:', JSON.stringify(mappedData));
+          
+          const purchaseData = {
+            ...mappedData,
             importedFileId: importedFile.id
-          }, { transaction });
+          };
+          
+          await Purchase.create(purchaseData, { transaction });
           processedRows++;
         } catch (err) {
           console.error('Błąd podczas przetwarzania wiersza zakupu:', err);
@@ -259,20 +303,15 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       console.log('Przetwarzanie danych wypłat...');
       for (const row of data) {
         try {
-          console.log('Przetwarzanie wiersza wypłaty:', JSON.stringify(row));
-          await Payroll.create({
-            date: row.date ? new Date(row.date) : new Date(),
-            employee: row.employee || '',
-            grossAmount: parseFloat(row.grossAmount) || 0,
-            contributions: parseFloat(row.contributions) || 0,
-            tax: parseFloat(row.tax) || 0,
-            netAmount: parseFloat(row.netAmount) || 0,
-            departmentId: row.departmentId || null,
-            groupId: row.groupId || null,
-            serviceTypeId: row.serviceTypeId || null,
-            category: row.category || '',
+          const mappedData = mapPayrollFields(row);
+          console.log('Zmapowane dane wypłaty:', JSON.stringify(mappedData));
+          
+          const payrollData = {
+            ...mappedData,
             importedFileId: importedFile.id
-          }, { transaction });
+          };
+          
+          await Payroll.create(payrollData, { transaction });
           processedRows++;
         } catch (err) {
           console.error('Błąd podczas przetwarzania wiersza wypłaty:', err);
@@ -283,19 +322,15 @@ router.post('/', upload.single('file'), handleMulterErrors, async (req, res) => 
       console.log('Przetwarzanie danych sprzedaży...');
       for (const row of data) {
         try {
-          console.log('Przetwarzanie wiersza sprzedaży:', JSON.stringify(row));
-          await Sale.create({
-            date: row.date ? new Date(row.date) : new Date(),
-            customer: row.customer || '',
-            quantity: parseInt(row.quantity) || 1,
-            netAmount: parseFloat(row.netAmount) || 0,
-            averageValue: parseFloat(row.averageValue) || 0,
-            departmentId: row.departmentId || null,
-            groupId: row.groupId || null,
-            serviceTypeId: row.serviceTypeId || null,
-            category: row.category || '',
+          const mappedData = mapSaleFields(row);
+          console.log('Zmapowane dane sprzedaży:', JSON.stringify(mappedData));
+          
+          const saleData = {
+            ...mappedData,
             importedFileId: importedFile.id
-          }, { transaction });
+          };
+          
+          await Sale.create(saleData, { transaction });
           processedRows++;
         } catch (err) {
           console.error('Błąd podczas przetwarzania wiersza sprzedaży:', err);
@@ -461,16 +496,16 @@ router.get('/:id', async (req, res) => {
           limit: 100 // Ograniczenie dla wydajności
         });
       }
-      console.log(`Pobrano ${importedData.length} wierszy danych powiązanych z plikiem`);
+      console.log(`Pobrano ${importedData.length} rekordów powiązanych z plikiem`);
     } catch (err) {
       console.error('Błąd podczas pobierania danych powiązanych z plikiem:', err);
-      importedData = [];
+      // Kontynuujemy mimo błędu
     }
     
     res.json({
       id: importedFile.id,
       fileName: importedFile.originalFilename,
-      filePath: importedFile.filename, // Ścieżka do pliku na serwerze
+      filePath: importedFile.filename,
       fileSize: 0, // Brak informacji o rozmiarze w modelu
       type: importedFile.fileType === 'purchase' ? 'purchases' : 
             importedFile.fileType === 'payroll' ? 'payroll' : 'sales',
@@ -478,7 +513,7 @@ router.get('/:id', async (req, res) => {
       processedRows: importedFile.rowsCount,
       createdAt: importedFile.importDate,
       updatedAt: importedFile.updatedAt,
-      sampleData: importedData.slice(0, 10) // Przykładowe dane (pierwsze 10 rekordów)
+      sampleData: importedData
     });
   } catch (err) {
     console.error('Upload details error:', err);

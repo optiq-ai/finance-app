@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { Payroll } = require('../models');
+const { Payroll, sequelize } = require('../models');
 
 /**
  * @route   GET /api/payroll
@@ -10,13 +10,16 @@ const { Payroll } = require('../models');
  */
 router.get('/', async (req, res) => {
   try {
+    console.log('Pobieranie listy wypłat z parametrami:', req.query);
+    
     const { 
       page = 0, 
       pageSize = 10, 
       dateFrom, 
       dateTo, 
       department, 
-      group
+      group,
+      employee
     } = req.query;
 
     // Budowanie warunków filtrowania
@@ -38,6 +41,9 @@ router.get('/', async (req, res) => {
     
     if (department) whereConditions.departmentId = department;
     if (group) whereConditions.groupId = group;
+    if (employee) whereConditions.employeeName = { [Op.like]: `%${employee}%` };
+
+    console.log('Warunki filtrowania:', JSON.stringify(whereConditions));
 
     // Pobieranie danych z paginacją
     const { count, rows } = await Payroll.findAndCountAll({
@@ -47,16 +53,53 @@ router.get('/', async (req, res) => {
       order: [['date', 'DESC']]
     });
 
+    console.log(`Znaleziono ${count} rekordów wypłat`);
+
+    // Pobieranie unikalnych wartości dla filtrów
+    const departments = await Payroll.findAll({
+      attributes: [[sequelize.fn('DISTINCT', sequelize.col('departmentId')), 'departmentId']],
+      where: { departmentId: { [Op.ne]: null } },
+      raw: true
+    });
+
+    const groups = await Payroll.findAll({
+      attributes: [[sequelize.fn('DISTINCT', sequelize.col('groupId')), 'groupId']],
+      where: { groupId: { [Op.ne]: null } },
+      raw: true
+    });
+
+    const employees = await Payroll.findAll({
+      attributes: [[sequelize.fn('DISTINCT', sequelize.col('employeeName')), 'employeeName']],
+      where: { employeeName: { [Op.ne]: null } },
+      raw: true
+    });
+
+    // Przygotowanie danych do wyświetlenia w tabeli
+    const formattedRows = rows.map(row => {
+      const payroll = row.toJSON();
+      return {
+        ...payroll,
+        department: payroll.departmentId,
+        group: payroll.groupId,
+        employee: payroll.employeeName
+      };
+    });
+
     res.json({
       totalItems: count,
-      items: rows,
+      items: formattedRows,
       page: parseInt(page),
       pageSize: parseInt(pageSize),
-      totalPages: Math.ceil(count / parseInt(pageSize))
+      totalPages: Math.ceil(count / parseInt(pageSize)),
+      filterOptions: {
+        departments: departments.map(d => d.departmentId),
+        groups: groups.map(g => g.groupId),
+        employees: employees.map(e => e.employeeName)
+      }
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error('Błąd podczas pobierania wypłat:', err);
+    res.status(500).json({ message: 'Błąd serwera', error: err.message });
   }
 });
 
