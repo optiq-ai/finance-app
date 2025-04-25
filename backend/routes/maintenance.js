@@ -1,27 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const seedDictionaries = require('../seeders/dictionarySeeder');
+const populateDictionaries = require('../scripts/populateDictionaries');
 
-/**
- * @route   POST /api/maintenance/seed-dictionaries
- * @desc    Importuje podstawowe dane słownikowe
- * @access  Private
- */
-router.post('/seed-dictionaries', async (req, res) => {
+// Endpoint do automatycznego wypełniania słowników na podstawie istniejących danych
+router.post('/populate-dictionaries', async (req, res) => {
   try {
-    console.log('Uruchamianie importu danych słownikowych...');
-    const result = await seedDictionaries();
-    
-    if (result.success) {
-      console.log('Import danych słownikowych zakończony sukcesem');
-      res.json(result);
-    } else {
-      console.error('Błąd podczas importu danych słownikowych:', result.message);
-      res.status(500).json(result);
-    }
-  } catch (err) {
-    console.error('Nieoczekiwany błąd podczas importu danych słownikowych:', err);
-    res.status(500).json({ success: false, message: `Nieoczekiwany błąd: ${err.message}` });
+    const stats = await populateDictionaries();
+    res.json({
+      success: true,
+      message: 'Słowniki zostały pomyślnie wypełnione na podstawie istniejących danych',
+      stats
+    });
+  } catch (error) {
+    console.error('Błąd podczas wypełniania słowników:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Wystąpił błąd podczas wypełniania słowników',
+      error: error.message
+    });
   }
 });
 
