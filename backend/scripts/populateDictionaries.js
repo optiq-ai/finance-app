@@ -2,62 +2,57 @@ const { sequelize } = require('../models');
 const { Department, Group, ServiceType, Contractor, CostCategory, Purchase, Sale, Payroll } = require('../models');
 
 /**
- * Skrypt do automatycznego wypełniania tabel słownikowych na podstawie istniejących danych w bazie
+ * Skrypt do wypełniania tabel słownikowych na podstawie istniejących danych w bazie
  */
 async function populateDictionaries() {
   try {
     console.log('Rozpoczynam wypełnianie słowników na podstawie danych transakcyjnych...');
     
-    // Pobierz unikalne wartości z kolumn description w tabelach transakcyjnych
+    // Pobierz unikalne wartości z tabel transakcyjnych
     console.log('Pobieranie unikalnych wartości z tabeli purchases...');
     
     // Pobierz unikalne nazwy oddziałów z tabeli purchases
     const [purchaseDepartments] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM purchases WHERE description LIKE \'%ODDZIAŁ%\' OR description LIKE \'%ODDZIAL%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     // Pobierz unikalne nazwy grup z tabeli purchases
     const [purchaseGroups] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM purchases WHERE description NOT LIKE \'%ODDZIAŁ%\' AND description NOT LIKE \'%ODDZIAL%\' AND description NOT LIKE \'%KONTRAHENT%\' AND description NOT LIKE \'%USŁUG%\' AND description NOT LIKE \'%USLUG%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     // Pobierz unikalne nazwy kontrahentów z tabeli purchases
     const [purchaseContractors] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM purchases WHERE description LIKE \'%KONTRAHENT%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     // Pobierz unikalne kategorie kosztów z tabeli purchases
     const [purchaseCostCategories] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM purchases WHERE description LIKE \'%KOSZT%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     console.log('Pobieranie unikalnych wartości z tabeli sales...');
     
     // Pobierz unikalne nazwy oddziałów z tabeli sales
     const [salesDepartments] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM sales WHERE description LIKE \'%ODDZIAŁ%\' OR description LIKE \'%ODDZIAL%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM sales WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     // Pobierz unikalne nazwy grup z tabeli sales
     const [salesGroups] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM sales WHERE description NOT LIKE \'%ODDZIAŁ%\' AND description NOT LIKE \'%ODDZIAL%\' AND description NOT LIKE \'%USŁUG%\' AND description NOT LIKE \'%USLUG%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM sales WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     // Pobierz unikalne rodzaje usług z tabeli sales
     const [salesServiceTypes] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM sales WHERE description LIKE \'%USŁUG%\' OR description LIKE \'%USLUG%\''
+      'SELECT DISTINCT "documentNumber" AS name FROM sales WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
     );
     
     console.log('Pobieranie unikalnych wartości z tabeli payrolls...');
     
-    // Pobierz unikalne nazwy oddziałów z tabeli payrolls
-    const [payrollDepartments] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM payrolls WHERE description LIKE \'%ODDZIAŁ%\' OR description LIKE \'%ODDZIAL%\''
-    );
-    
-    // Pobierz unikalne nazwy grup z tabeli payrolls
-    const [payrollGroups] = await sequelize.query(
-      'SELECT DISTINCT description AS name FROM payrolls WHERE description NOT LIKE \'%ODDZIAŁ%\' AND description NOT LIKE \'%ODDZIAL%\''
+    // Pobierz unikalne nazwy pracowników z tabeli payrolls
+    const [payrollEmployees] = await sequelize.query(
+      'SELECT DISTINCT "employeeName" AS name, "position" FROM payrolls WHERE "employeeName" IS NOT NULL AND "employeeName" != \'\''
     );
     
     // Pobierz wszystkie unikalne wartości z kolumn departmentId, groupId, serviceTypeId, contractorId, costCategoryId
@@ -108,20 +103,18 @@ async function populateDictionaries() {
       'SELECT DISTINCT "costCategoryId" FROM purchases WHERE "costCategoryId" IS NOT NULL'
     );
     
-    // Pobierz unikalne wartości z kolumn employeeName i position w tabeli payrolls
-    const [payrollEmployees] = await sequelize.query(
-      'SELECT DISTINCT "employeeName" AS name, "position" FROM payrolls WHERE "employeeName" IS NOT NULL'
-    );
-    
     // Tworzenie słowników na podstawie unikalnych wartości
     console.log('Tworzenie słownika oddziałów...');
     
     // Połącz wszystkie unikalne nazwy oddziałów
     const allDepartmentNames = [
       ...purchaseDepartments.map(d => d.name),
-      ...salesDepartments.map(d => d.name),
-      ...payrollDepartments.map(d => d.name)
+      ...salesDepartments.map(d => d.name)
     ];
+    
+    // Dodaj unikalne nazwy pracowników jako potencjalne oddziały
+    const employeeDepartments = payrollEmployees.map(e => e.name.split(' ')[0]); // Używamy pierwszego słowa z imienia i nazwiska
+    allDepartmentNames.push(...employeeDepartments);
     
     // Usuń duplikaty
     const uniqueDepartmentNames = [...new Set(allDepartmentNames)];
@@ -150,9 +143,12 @@ async function populateDictionaries() {
     // Połącz wszystkie unikalne nazwy grup
     const allGroupNames = [
       ...purchaseGroups.map(g => g.name),
-      ...salesGroups.map(g => g.name),
-      ...payrollGroups.map(g => g.name)
+      ...salesGroups.map(g => g.name)
     ];
+    
+    // Dodaj unikalne stanowiska pracowników jako potencjalne grupy
+    const employeePositions = payrollEmployees.filter(e => e.position).map(e => e.position);
+    allGroupNames.push(...employeePositions);
     
     // Usuń duplikaty
     const uniqueGroupNames = [...new Set(allGroupNames)];

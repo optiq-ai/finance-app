@@ -1,6 +1,5 @@
 const app = require('./app');
 const { sequelize } = require('./models');
-const populateDictionaries = require('./scripts/populateDictionaries');
 
 const PORT = process.env.PORT || 3001;
 
@@ -14,15 +13,8 @@ const syncDatabase = async () => {
     await sequelize.sync({ alter: true });
     console.log('Modele zsynchronizowane z bazą danych.');
     
-    // Automatyczne wypełnianie słowników przy starcie systemu
-    try {
-      console.log('Rozpoczynam automatyczne wypełnianie słowników...');
-      const stats = await populateDictionaries();
-      console.log('Słowniki zostały automatycznie wypełnione:', stats);
-    } catch (dictError) {
-      console.error('Błąd podczas automatycznego wypełniania słowników:', dictError);
-      // Kontynuujemy uruchamianie serwera mimo błędu w słownikach
-    }
+    // Usunięto automatyczne wypełnianie słowników przy starcie systemu
+    // Teraz słowniki będą tworzone na żądanie poprzez przycisk w interfejsie
   } catch (error) {
     console.error('Nie udało się połączyć z bazą danych:', error);
   }
