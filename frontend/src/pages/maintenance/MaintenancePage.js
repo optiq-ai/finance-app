@@ -13,7 +13,7 @@ const MaintenancePage = () => {
     setError(null);
     
     try {
-      const response = await api.post('maintenance/seed-dictionaries');
+      const response = await api.post('/api/maintenance/seed-dictionaries');
       setResult(response.data);
       console.log('Wynik importu słowników:', response.data);
     } catch (err) {
