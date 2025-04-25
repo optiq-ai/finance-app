@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Button, Card, CardContent, Typography, Alert, CircularProgress, Grid } from '@mui/material';
-import axios from 'axios';
-import { API_URL } from '../../services/api';
+import api from '../../services/api';
 
 const MaintenancePage = () => {
   const [loading, setLoading] = useState(false);
@@ -14,7 +13,7 @@ const MaintenancePage = () => {
     setError(null);
     
     try {
-      const response = await axios.post(`${API_URL}/maintenance/seed-dictionaries`);
+      const response = await api.post('maintenance/seed-dictionaries');
       setResult(response.data);
       console.log('Wynik importu słowników:', response.data);
     } catch (err) {
