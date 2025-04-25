@@ -13,7 +13,8 @@ const MaintenancePage = () => {
     setError(null);
     
     try {
-      const response = await api.post('/api/maintenance/populate-dictionaries');
+      // Zmieniono endpoint na seed-dictionaries dla kompatybilności
+      const response = await api.post('/api/maintenance/seed-dictionaries');
       setResult(response.data);
       console.log('Wynik importu słowników:', response.data);
     } catch (err) {
@@ -53,15 +54,15 @@ const MaintenancePage = () => {
               {result && (
                 <Alert severity="success" sx={{ mt: 2 }}>
                   {result.message}
-                  {result.counts && (
+                  {result.stats && (
                     <Typography variant="body2" component="div" sx={{ mt: 1 }}>
                       Zaimportowano:
                       <ul>
-                        <li>Departamenty: {result.counts.departments}</li>
-                        <li>Grupy: {result.counts.groups}</li>
-                        <li>Rodzaje usług: {result.counts.serviceTypes}</li>
-                        <li>Kontrahenci: {result.counts.contractors}</li>
-                        <li>Kategorie kosztów: {result.counts.costCategories}</li>
+                        <li>Departamenty: {result.stats.departments}</li>
+                        <li>Grupy: {result.stats.groups}</li>
+                        <li>Rodzaje usług: {result.stats.serviceTypes}</li>
+                        <li>Kontrahenci: {result.stats.contractors}</li>
+                        <li>Kategorie kosztów: {result.stats.costCategories}</li>
                       </ul>
                     </Typography>
                   )}
