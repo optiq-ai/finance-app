@@ -3,7 +3,7 @@ import axios from 'axios';
 // W środowisku kontenerowym, używamy proxy NGINX skonfigurowanego w nginx.conf
 // W środowisku deweloperskim, używamy localhost
 // W środowisku produkcyjnym, używamy zmiennej środowiskowej lub proxy NGINX
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+export const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 console.log('Using API URL:', API_URL);
 
