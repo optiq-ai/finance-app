@@ -8,6 +8,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import LayersIcon from '@mui/icons-material/Layers';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import BuildIcon from '@mui/icons-material/Build';
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
@@ -65,6 +66,12 @@ const MainLayout = () => {
             <BugReportIcon />
           </ListItemIcon>
           <ListItemText primary="Diagnostyka" />
+        </ListItem>
+        <ListItem button component={Link} to="/app/maintenance">
+          <ListItemIcon>
+            <BuildIcon />
+          </ListItemIcon>
+          <ListItemText primary="Konserwacja" />
         </ListItem>
       </List>
     </div>
