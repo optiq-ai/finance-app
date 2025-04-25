@@ -9,6 +9,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import LayersIcon from '@mui/icons-material/Layers';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import BuildIcon from '@mui/icons-material/Build';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
@@ -59,6 +60,12 @@ const MainLayout = () => {
             <LayersIcon />
           </ListItemIcon>
           <ListItemText primary="Słowniki" />
+        </ListItem>
+        <ListItem button component={Link} to="/app/upload">
+          <ListItemIcon>
+            <CloudUploadIcon />
+          </ListItemIcon>
+          <ListItemText primary="Ładowanie plików" />
         </ListItem>
         <Divider />
         <ListItem button component={Link} to="/app/diagnostic">
