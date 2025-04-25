@@ -11,6 +11,7 @@ const dictionaryRoutes = require('./routes/dictionary');
 const uploadRoutes = require('./routes/upload');
 const savedViewsRoutes = require('./routes/savedViews');
 const filtersRoutes = require('./routes/filters');
+const maintenanceRoutes = require('./routes/maintenance');
 
 // Załadowanie zmiennych środowiskowych
 dotenv.config();
@@ -68,6 +69,7 @@ app.use('/api/dictionary', dictionaryRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/saved-views', savedViewsRoutes);
 app.use('/api/filters', filtersRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 
 // Obsługa błędów
 app.use((err, req, res, next) => {
