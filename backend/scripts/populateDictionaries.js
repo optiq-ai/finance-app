@@ -11,41 +11,29 @@ async function populateDictionaries() {
     // Pobierz unikalne wartości z tabel transakcyjnych
     console.log('Pobieranie unikalnych wartości z tabeli purchases...');
     
-    // Pobierz unikalne nazwy oddziałów z tabeli purchases
-    const [purchaseDepartments] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
+    // Pobierz unikalne nazwy oddziałów z tabeli departments
+    const [departments] = await sequelize.query(
+      'SELECT DISTINCT name FROM departments WHERE name IS NOT NULL AND name != \'\''
     );
     
-    // Pobierz unikalne nazwy grup z tabeli purchases
-    const [purchaseGroups] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
+    // Pobierz unikalne nazwy grup z tabeli groups
+    const [groups] = await sequelize.query(
+      'SELECT DISTINCT name, department_id FROM groups WHERE name IS NOT NULL AND name != \'\''
     );
     
-    // Pobierz unikalne nazwy kontrahentów z tabeli purchases
-    const [purchaseContractors] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
+    // Pobierz unikalne nazwy kontrahentów z tabeli contractors
+    const [contractors] = await sequelize.query(
+      'SELECT DISTINCT name FROM contractors WHERE name IS NOT NULL AND name != \'\''
     );
     
-    // Pobierz unikalne kategorie kosztów z tabeli purchases
-    const [purchaseCostCategories] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM purchases WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
+    // Pobierz unikalne kategorie kosztów z tabeli cost_categories
+    const [costCategories] = await sequelize.query(
+      'SELECT DISTINCT name FROM cost_categories WHERE name IS NOT NULL AND name != \'\''
     );
     
-    console.log('Pobieranie unikalnych wartości z tabeli sales...');
-    
-    // Pobierz unikalne nazwy oddziałów z tabeli sales
-    const [salesDepartments] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM sales WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
-    );
-    
-    // Pobierz unikalne nazwy grup z tabeli sales
-    const [salesGroups] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM sales WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
-    );
-    
-    // Pobierz unikalne rodzaje usług z tabeli sales
-    const [salesServiceTypes] = await sequelize.query(
-      'SELECT DISTINCT "documentNumber" AS name FROM sales WHERE "documentNumber" IS NOT NULL AND "documentNumber" != \'\''
+    // Pobierz unikalne rodzaje usług z tabeli service_types
+    const [serviceTypes] = await sequelize.query(
+      'SELECT DISTINCT name, code FROM service_types WHERE name IS NOT NULL AND name != \'\''
     );
     
     console.log('Pobieranie unikalnych wartości z tabeli payrolls...');
@@ -106,30 +94,22 @@ async function populateDictionaries() {
     // Tworzenie słowników na podstawie unikalnych wartości
     console.log('Tworzenie słownika oddziałów...');
     
-    // Połącz wszystkie unikalne nazwy oddziałów
-    const allDepartmentNames = [
-      ...purchaseDepartments.map(d => d.name),
-      ...salesDepartments.map(d => d.name)
-    ];
-    
-    // Dodaj unikalne nazwy pracowników jako potencjalne oddziały
-    const employeeDepartments = payrollEmployees.map(e => e.name.split(' ')[0]); // Używamy pierwszego słowa z imienia i nazwiska
-    allDepartmentNames.push(...employeeDepartments);
-    
-    // Usuń duplikaty
-    const uniqueDepartmentNames = [...new Set(allDepartmentNames)];
-    
-    // Utwórz wpisy w słowniku oddziałów
-    for (const name of uniqueDepartmentNames) {
-      if (name && name.trim() !== '') {
-        const cleanName = name.trim().toUpperCase();
-        const code = cleanName.substring(0, 10).replace(/[^A-Z0-9]/g, '');
-        
+    // Jeśli nie ma istniejących oddziałów, utwórz podstawowe
+    if (departments.length === 0) {
+      console.log('Nie znaleziono oddziałów w danych transakcyjnych. Tworzenie podstawowych oddziałów...');
+      const defaultDepartments = [
+        { name: 'CENTRALA', code: 'CENT', description: 'Oddział Centrala' },
+        { name: 'ZAMOŚĆ', code: 'ZAM', description: 'Oddział w Zamościu' },
+        { name: 'KALISZ', code: 'KAL', description: 'Oddział w Kaliszu' },
+        { name: 'LEGNICA', code: 'LEG', description: 'Oddział w Legnicy' }
+      ];
+      
+      for (const dept of defaultDepartments) {
         await Department.findOrCreate({
-          where: { name: cleanName },
+          where: { name: dept.name },
           defaults: {
-            code: code,
-            description: `Oddział ${cleanName}`
+            code: dept.code,
+            description: dept.description
           }
         });
       }
@@ -140,34 +120,19 @@ async function populateDictionaries() {
     
     console.log('Tworzenie słownika grup...');
     
-    // Połącz wszystkie unikalne nazwy grup
-    const allGroupNames = [
-      ...purchaseGroups.map(g => g.name),
-      ...salesGroups.map(g => g.name)
-    ];
-    
-    // Dodaj unikalne stanowiska pracowników jako potencjalne grupy
-    const employeePositions = payrollEmployees.filter(e => e.position).map(e => e.position);
-    allGroupNames.push(...employeePositions);
-    
-    // Usuń duplikaty
-    const uniqueGroupNames = [...new Set(allGroupNames)];
-    
-    // Utwórz wpisy w słowniku grup
-    for (const name of uniqueGroupNames) {
-      if (name && name.trim() !== '') {
-        const cleanName = name.trim().toUpperCase();
-        const code = cleanName.substring(0, 10).replace(/[^A-Z0-9]/g, '');
-        
-        // Przypisz grupę do pierwszego oddziału (jeśli istnieją oddziały)
-        const departmentId = allDepartments.length > 0 ? allDepartments[0].id : null;
-        
+    // Jeśli nie ma istniejących grup, utwórz podstawowe
+    if (groups.length === 0) {
+      console.log('Nie znaleziono grup w danych transakcyjnych. Tworzenie podstawowych grup...');
+      
+      // Dla każdego oddziału utwórz podstawową grupę
+      for (const dept of allDepartments) {
         await Group.findOrCreate({
-          where: { name: cleanName },
+          where: { 
+            name: `GRUPA ${dept.name}`,
+            departmentId: dept.id
+          },
           defaults: {
-            code: code,
-            description: `Grupa ${cleanName}`,
-            departmentId: departmentId
+            description: `Podstawowa grupa dla oddziału ${dept.name}`
           }
         });
       }
@@ -175,23 +140,20 @@ async function populateDictionaries() {
     
     console.log('Tworzenie słownika kontrahentów...');
     
-    // Połącz wszystkie unikalne nazwy kontrahentów
-    const allContractorNames = purchaseContractors.map(c => c.name);
-    
-    // Usuń duplikaty
-    const uniqueContractorNames = [...new Set(allContractorNames)];
-    
-    // Utwórz wpisy w słowniku kontrahentów
-    for (const name of uniqueContractorNames) {
-      if (name && name.trim() !== '') {
-        const cleanName = name.trim().toUpperCase();
-        const code = cleanName.substring(0, 10).replace(/[^A-Z0-9]/g, '');
-        
+    // Jeśli nie ma istniejących kontrahentów, utwórz podstawowe
+    if (contractors.length === 0) {
+      console.log('Nie znaleziono kontrahentów w danych transakcyjnych. Tworzenie podstawowych kontrahentów...');
+      const defaultContractors = [
+        { name: 'KONTRAHENT OGÓLNY', code: 'KONT-OG', description: 'Kontrahent ogólny' },
+        { name: 'KLIENT DETALICZNY', code: 'KLIENT-DET', description: 'Klient detaliczny' }
+      ];
+      
+      for (const contractor of defaultContractors) {
         await Contractor.findOrCreate({
-          where: { name: cleanName },
+          where: { name: contractor.name },
           defaults: {
-            code: code,
-            description: `Kontrahent ${cleanName}`,
+            code: contractor.code,
+            description: contractor.description,
             nip: '',
             address: '',
             contactPerson: '',
@@ -204,23 +166,21 @@ async function populateDictionaries() {
     
     console.log('Tworzenie słownika kategorii kosztów...');
     
-    // Połącz wszystkie unikalne nazwy kategorii kosztów
-    const allCostCategoryNames = purchaseCostCategories.map(c => c.name);
-    
-    // Usuń duplikaty
-    const uniqueCostCategoryNames = [...new Set(allCostCategoryNames)];
-    
-    // Utwórz wpisy w słowniku kategorii kosztów
-    for (const name of uniqueCostCategoryNames) {
-      if (name && name.trim() !== '') {
-        const cleanName = name.trim().toUpperCase();
-        const code = cleanName.substring(0, 10).replace(/[^A-Z0-9]/g, '');
-        
+    // Jeśli nie ma istniejących kategorii kosztów, utwórz podstawowe
+    if (costCategories.length === 0) {
+      console.log('Nie znaleziono kategorii kosztów w danych transakcyjnych. Tworzenie podstawowych kategorii...');
+      const defaultCostCategories = [
+        { name: 'KOSZTY OGÓLNE', code: 'KOSZT-OG', description: 'Kategoria kosztów Koszty ogólne' },
+        { name: 'WYNAGRODZENIA', code: 'WYNAGR', description: 'Koszty wynagrodzeń pracowników' },
+        { name: 'MATERIAŁY', code: 'MATER', description: 'Koszty materiałów' }
+      ];
+      
+      for (const category of defaultCostCategories) {
         await CostCategory.findOrCreate({
-          where: { name: cleanName },
+          where: { name: category.name },
           defaults: {
-            code: code,
-            description: `Kategoria kosztów ${cleanName}`
+            code: category.code,
+            description: category.description
           }
         });
       }
@@ -228,79 +188,24 @@ async function populateDictionaries() {
     
     console.log('Tworzenie słownika rodzajów usług...');
     
-    // Połącz wszystkie unikalne nazwy rodzajów usług
-    const allServiceTypeNames = salesServiceTypes.map(s => s.name);
-    
-    // Usuń duplikaty
-    const uniqueServiceTypeNames = [...new Set(allServiceTypeNames)];
-    
-    // Utwórz wpisy w słowniku rodzajów usług
-    for (const name of uniqueServiceTypeNames) {
-      if (name && name.trim() !== '') {
-        const cleanName = name.trim().toUpperCase();
-        const code = cleanName.substring(0, 10).replace(/[^A-Z0-9]/g, '');
-        
+    // Jeśli nie ma istniejących rodzajów usług, utwórz podstawowe
+    if (serviceTypes.length === 0) {
+      console.log('Nie znaleziono rodzajów usług w danych transakcyjnych. Tworzenie podstawowych rodzajów...');
+      const defaultServiceTypes = [
+        { name: 'USŁUGI OGÓLNE', code: 'USL-OG', description: 'Rodzaj usługi Usługi ogólne' },
+        { name: 'INSTALACJA', code: 'INST', description: 'Usługi instalacyjne' },
+        { name: 'SERWIS', code: 'SERW', description: 'Usługi serwisowe' }
+      ];
+      
+      for (const serviceType of defaultServiceTypes) {
         await ServiceType.findOrCreate({
-          where: { name: cleanName },
+          where: { name: serviceType.name },
           defaults: {
-            code: code,
-            description: `Rodzaj usługi ${cleanName}`
+            code: serviceType.code,
+            description: serviceType.description
           }
         });
       }
-    }
-    
-    // Jeśli nie znaleziono żadnych danych w tabelach transakcyjnych, utwórz podstawowe wpisy
-    const departmentCount = await Department.count();
-    const groupCount = await Group.count();
-    const serviceTypeCount = await ServiceType.count();
-    const contractorCount = await Contractor.count();
-    const costCategoryCount = await CostCategory.count();
-    
-    if (departmentCount === 0) {
-      console.log('Nie znaleziono oddziałów w danych transakcyjnych. Tworzenie podstawowego oddziału...');
-      await Department.create({
-        name: 'CENTRALA',
-        code: 'CENT',
-        description: 'Oddział Centrala'
-      });
-    }
-    
-    if (groupCount === 0) {
-      console.log('Nie znaleziono grup w danych transakcyjnych. Tworzenie podstawowej grupy...');
-      await Group.create({
-        name: 'OGÓLNA',
-        code: 'OG',
-        description: 'Grupa Ogólna',
-        departmentId: (await Department.findOne()).id
-      });
-    }
-    
-    if (serviceTypeCount === 0) {
-      console.log('Nie znaleziono rodzajów usług w danych transakcyjnych. Tworzenie podstawowego rodzaju usługi...');
-      await ServiceType.create({
-        name: 'USŁUGI OGÓLNE',
-        code: 'USL-OG',
-        description: 'Rodzaj usługi Usługi ogólne'
-      });
-    }
-    
-    if (contractorCount === 0) {
-      console.log('Nie znaleziono kontrahentów w danych transakcyjnych. Tworzenie podstawowego kontrahenta...');
-      await Contractor.create({
-        name: 'KONTRAHENT OGÓLNY',
-        code: 'KONT-OG',
-        description: 'Kontrahent ogólny'
-      });
-    }
-    
-    if (costCategoryCount === 0) {
-      console.log('Nie znaleziono kategorii kosztów w danych transakcyjnych. Tworzenie podstawowej kategorii kosztów...');
-      await CostCategory.create({
-        name: 'KOSZTY OGÓLNE',
-        code: 'KOSZT-OG',
-        description: 'Kategoria kosztów Koszty ogólne'
-      });
     }
     
     console.log('Słowniki zostały pomyślnie wypełnione na podstawie danych transakcyjnych!');
